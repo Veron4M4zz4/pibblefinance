@@ -1,0 +1,6 @@
+{
+  "name": "PibbleFinance",
+  "description": "Seu controle financeiro simples e moderno com gerenciamento de contas, movimentações e análises gráficas integradas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
