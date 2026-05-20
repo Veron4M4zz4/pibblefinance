@@ -42,9 +42,11 @@ export async function createWallet(wallet: Omit<Wallet, "id">) {
   const { data, error } = await supabase
     .from("wallets")
     .insert([wallet])
-    .select();
+    .select()
+    .single();
 
   if (error) {
+    alert("Erro ao criar carteira: " + error.message);
     console.error("Erro ao criar carteira:", error);
     return null;
   }
