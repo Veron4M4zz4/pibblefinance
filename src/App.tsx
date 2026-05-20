@@ -231,7 +231,55 @@ export default function App() {
     const updatedProfile = { ...profile, currency: curr };
     setProfile(updatedProfile);
   }
+useEffect(() => {
+  async function loadSession() {
+    const { data } = await supabase.auth.getSession();
 
+    if (data.session?.user) {
+      const user = data.session.user;
+
+      const name =
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        user.email ||
+        "Usuário";
+
+      setCurrentUser(name);
+
+      setProfile((prev) => ({
+        ...prev,
+        name,
+      }));
+    }
+  }
+
+  loadSession();
+
+  const { data: listener } = supabase.auth.onAuthStateChange(
+    (_event, session) => {
+      if (session?.user) {
+        const user = session.user;
+
+        const name =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          user.email ||
+          "Usuário";
+
+        setCurrentUser(name);
+
+        setProfile((prev) => ({
+          ...prev,
+          name,
+        }));
+      }
+    }
+  );
+
+  return () => {
+    listener.subscription.unsubscribe();
+  };
+}, []);
   if (!currentUser) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 p-6 md:p-12 relative overflow-hidden">
