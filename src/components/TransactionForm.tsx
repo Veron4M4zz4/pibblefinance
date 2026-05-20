@@ -4,7 +4,6 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Transaction, TransactionType, Wallet } from '../types';
 import { PRESET_CATEGORIES } from '../utils/constants';
 import CategoryIcon from './CategoryIcon';
 import { PlusCircle, RefreshCw, ArrowUpCircle, ArrowDownCircle, Sparkles } from 'lucide-react';

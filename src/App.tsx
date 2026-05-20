@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Wallet, Transaction, UserProfile } from "./types";
+import { supabase } from './services/supabase';
 
 import {
   getStorageItem,
@@ -35,8 +36,59 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 
 export default function App() {
+  useEffect(() => {
+  supabase.auth.getSession().then(({ data }) => {
+    const session = data.session;
+
+    if (session?.user) {
+      const name =
+        session.user.user_metadata?.full_name ||
+        session.user.email ||
+        "Usuário";
+
+      setCurrentUser(name);
+
+      setProfile((prev) => ({
+        ...prev,
+        name,
+      }));
+    }
+  });
+
+  const { data: listener } = supabase.auth.onAuthStateChange(
+    (_event, session) => {
+      if (session?.user) {
+        const name =
+          session.user.user_metadata?.full_name ||
+          session.user.email ||
+          "Usuário";
+
+        setCurrentUser(name);
+
+        setProfile((prev) => ({
+          ...prev,
+          name,
+        }));
+      }
+    }
+  );
+
+  return () => {
+    listener.subscription.unsubscribe();
+  };
+}, []);
+  async function handleGoogleLogin() {
+  await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin,
+    },
+  });
+}
   const [currentUser, setCurrentUser] = useState(
     () => localStorage.getItem("pibblefinance:user") || ""
+    
+    
   );
 
   const [profile, setProfile] = useState<UserProfile>(() =>
@@ -158,22 +210,23 @@ export default function App() {
     await loadWallets();
   }
 
-  function handleLogout() {
-    localStorage.removeItem("pibblefinance:user");
-    localStorage.removeItem("pibblefinance:profile");
+ async function handleLogout() {
+  await supabase.auth.signOut();
 
-    setCurrentUser("");
-    setWallets([]);
-    setTransactions([]);
-    setProfile({
-      name: "",
-      currency: "BRL",
-      avatarColor: AVATAR_COLORS[0],
-      joinedAt: new Date().toISOString(),
-    });
-    setActiveTab("dashboard");
-  }
+  localStorage.removeItem("pibblefinance:user");
+  localStorage.removeItem("pibblefinance:profile");
 
+  setCurrentUser("");
+  setWallets([]);
+  setTransactions([]);
+  setProfile({
+    name: "",
+    currency: "BRL",
+    avatarColor: AVATAR_COLORS[0],
+    joinedAt: new Date().toISOString(),
+  });
+  setActiveTab("dashboard");
+}
   function handleChangeCurrency(curr: "BRL" | "USD" | "EUR") {
     const updatedProfile = { ...profile, currency: curr };
     setProfile(updatedProfile);
@@ -246,6 +299,12 @@ export default function App() {
               >
                 Criar Novo Espaço
               </button>
+              <button
+  onClick={handleGoogleLogin}
+  className="w-full flex items-center justify-center gap-2 rounded-xl bg-white py-3.5 text-xs font-bold text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
+>
+  Entrar com Google
+</button>
 
               <button
                 onClick={handleSeedMockData}
