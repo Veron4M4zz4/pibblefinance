@@ -516,6 +516,18 @@ export default function App() {
     return type || "Carteira";
   }
 
+  function getWalletThemeClass(theme?: string) {
+    const fallbackTheme =
+      "bg-gradient-to-br from-indigo-600 to-violet-800 text-white border-indigo-400/30";
+
+    const normalized = String(theme || "").trim();
+
+    if (!normalized) return fallbackTheme;
+    if (normalized.includes("bg-gradient")) return normalized;
+
+    return `bg-gradient-to-br ${normalized}`;
+  }
+
   if (authLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
@@ -988,8 +1000,8 @@ export default function App() {
                 </span>
               </div>
 
-              <div className="mb-6 grid gap-3 rounded-[24px] border border-white/10 bg-white/5 p-4 xl:grid-cols-[1.4fr_0.8fr_0.8fr]">
-                <label className="relative block">
+              <div className="mb-6 grid gap-3 rounded-[24px] border border-white/10 bg-white/5 p-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.95fr)_minmax(0,0.95fr)]">
+                <label className="relative block min-w-0">
                   <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                     Buscar carteira
                   </span>
@@ -1015,7 +1027,7 @@ export default function App() {
                   </div>
                 </label>
 
-                <label className="block">
+                <label className="block min-w-0">
                   <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                     Ordenar por
                   </span>
@@ -1036,7 +1048,7 @@ export default function App() {
                   </select>
                 </label>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid min-w-0 grid-cols-2 gap-2">
                   <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
                     <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                       Exibidas
@@ -1046,11 +1058,11 @@ export default function App() {
                     </strong>
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
+                  <div className="min-w-0 rounded-2xl border border-white/10 bg-white/6 p-3">
                     <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                       Saldo total
                     </span>
-                    <strong className="mt-1 block truncate text-lg font-black text-white">
+                    <strong className="mt-1 block min-w-0 text-[clamp(0.95rem,1.05vw,1.1rem)] font-black leading-tight tracking-tight text-white tabular-nums">
                       {formatMoney(walletOverview.totalBalance, profile.currency)}
                     </strong>
                   </div>
@@ -1088,30 +1100,30 @@ export default function App() {
                   </p>
 
                   {walletOverview.totalCount > 0 ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setWalletSearch("");
-                          setWalletSort("recent");
-                        }}
-                        className="mt-5 rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-2 text-xs font-bold text-indigo-200 transition hover:bg-indigo-500/15"
-                      >
-                        Limpar filtros
-                      </button>
-                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWalletSearch("");
+                        setWalletSort("recent");
+                      }}
+                      className="mt-5 rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-2 text-xs font-bold text-indigo-200 transition hover:bg-indigo-500/15"
+                    >
+                      Limpar filtros
+                    </button>
+                  ) : null}
                 </div>
               ) : (
                 <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                   {walletOverview.wallets.map((wallet) => (
                     <div
                       key={wallet.id}
-                      className={`relative overflow-hidden rounded-[28px] border p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${
-                        wallet.color ||
-                        "from-indigo-600 to-violet-800 text-white border-indigo-500"
-                      }`}
+                      className={`relative flex h-full min-h-[220px] flex-col justify-between overflow-hidden rounded-[28px] border p-6 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg ${getWalletThemeClass(
+                        wallet.color
+                      )}`}
                     >
-                      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(145deg,rgba(99,102,241,0.16),transparent_35%),linear-gradient(315deg,rgba(16,185,129,0.08),transparent_40%)]" />
+                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_40%)] opacity-70" />
                       <div className="pointer-events-none absolute right-0 top-0 -mr-8 -mt-8 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+                      <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-white/20" />
 
                       <div className="relative mb-6 flex items-start justify-between gap-3">
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white shadow-sm backdrop-blur-md">
@@ -1147,14 +1159,14 @@ export default function App() {
                             Saldo atual
                           </span>
 
-                          <strong className="mt-1 block text-3xl font-black tracking-tight text-white">
+                          <strong className="mt-1 block text-[clamp(1.55rem,2.4vw,2rem)] font-black leading-none tracking-tight text-white tabular-nums">
                             {formatMoney(
                               Number(wallet.balance || 0),
                               wallet.currency || profile.currency
                             )}
                           </strong>
 
-                          <p className="mt-2 text-xs leading-5 text-white/70">
+                          <p className="mt-2 max-w-[28ch] text-xs leading-5 text-white/70">
                             Carteira ativa para acompanhar entradas, saídas e crédito.
                           </p>
                         </div>
