@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { resolveWalletThemeClass } from "../utils/walletTheme";
 
 function normalizeWalletRecord(wallet: any) {
   return {
@@ -6,9 +7,7 @@ function normalizeWalletRecord(wallet: any) {
     name: wallet?.name || "Carteira",
     type: wallet?.type || "checking",
     balance: Number(wallet?.balance || 0),
-    color:
-      wallet?.color ||
-      "from-indigo-600 to-violet-800 text-white border-indigo-500",
+    color: resolveWalletThemeClass(wallet?.color, wallet?.type),
     currency: wallet?.currency || "BRL",
   };
 }

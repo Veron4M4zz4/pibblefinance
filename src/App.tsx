@@ -19,6 +19,10 @@ import {
 import { AVATAR_COLORS } from "./utils/constants";
 import { formatMoney } from "./utils/formatMoney";
 import { buildFinancialSnapshot } from "./utils/financialSnapshot";
+import {
+  resolveWalletAccentClass,
+  resolveWalletThemeClass,
+} from "./utils/walletTheme";
 
 import DashboardCharts from "./components/DashboardCharts";
 import WalletForm from "./components/WalletForm";
@@ -314,9 +318,7 @@ export default function App() {
           balance: Number(wallet.balance || 0),
           createdAt: normalized.created_at || normalized.createdAt || "",
           updatedAt: normalized.updated_at || normalized.updatedAt || "",
-          color:
-            wallet.color ||
-            "from-indigo-600 to-violet-800 text-white border-indigo-500",
+          color: resolveWalletThemeClass(wallet.color, wallet.type),
           currency: wallet.currency || profile.currency,
           index,
         };
@@ -514,18 +516,6 @@ export default function App() {
     if (normalized === "investment") return "Investimento";
 
     return type || "Carteira";
-  }
-
-  function getWalletThemeClass(theme?: string) {
-    const fallbackTheme =
-      "bg-gradient-to-br from-indigo-600 to-violet-800 text-white border-indigo-400/30";
-
-    const normalized = String(theme || "").trim();
-
-    if (!normalized) return fallbackTheme;
-    if (normalized.includes("bg-gradient")) return normalized;
-
-    return `bg-gradient-to-br ${normalized}`;
   }
 
   if (authLoading) {
@@ -1000,7 +990,7 @@ export default function App() {
                 </span>
               </div>
 
-              <div className="mb-6 grid gap-3 rounded-[24px] border border-white/10 bg-white/5 p-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.95fr)_minmax(0,0.95fr)]">
+              <div className="mb-6 grid gap-3 rounded-[24px] border border-white/10 bg-white/5 p-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
                 <label className="relative block min-w-0">
                   <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                     Buscar carteira
@@ -1048,7 +1038,7 @@ export default function App() {
                   </select>
                 </label>
 
-                <div className="grid min-w-0 grid-cols-2 gap-2">
+                <div className="grid min-w-0 grid-cols-2 gap-2 xl:col-span-2 sm:grid-cols-2">
                   <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
                     <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                       Exibidas
@@ -1058,11 +1048,11 @@ export default function App() {
                     </strong>
                   </div>
 
-                  <div className="min-w-0 rounded-2xl border border-white/10 bg-white/6 p-3">
+                  <div className="min-h-[88px] min-w-0 rounded-2xl border border-white/10 bg-white/6 p-3">
                     <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                       Saldo total
                     </span>
-                    <strong className="mt-1 block min-w-0 text-[clamp(0.95rem,1.05vw,1.1rem)] font-black leading-tight tracking-tight text-white tabular-nums">
+                    <strong className="mt-1 block min-w-0 whitespace-normal break-words text-[clamp(1rem,1.2vw,1.25rem)] font-black leading-tight tracking-tight text-white tabular-nums">
                       {formatMoney(walletOverview.totalBalance, profile.currency)}
                     </strong>
                   </div>
@@ -1117,11 +1107,18 @@ export default function App() {
                   {walletOverview.wallets.map((wallet) => (
                     <div
                       key={wallet.id}
-                      className={`relative flex h-full min-h-[220px] flex-col justify-between overflow-hidden rounded-[28px] border p-6 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg ${getWalletThemeClass(
-                        wallet.color
+                      className={`relative flex h-full min-h-[220px] flex-col justify-between overflow-hidden rounded-[28px] border p-6 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg ${resolveWalletThemeClass(
+                        wallet.color,
+                        wallet.type
                       )}`}
                     >
-                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_40%)] opacity-70" />
+                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_40%)] opacity-80" />
+                      <div
+                        className={`pointer-events-none absolute inset-y-0 left-0 w-1.5 ${resolveWalletAccentClass(
+                          wallet.color,
+                          wallet.type
+                        )}`}
+                      />
                       <div className="pointer-events-none absolute right-0 top-0 -mr-8 -mt-8 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
                       <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-white/20" />
 
@@ -1159,7 +1156,7 @@ export default function App() {
                             Saldo atual
                           </span>
 
-                          <strong className="mt-1 block text-[clamp(1.55rem,2.4vw,2rem)] font-black leading-none tracking-tight text-white tabular-nums">
+                          <strong className="mt-1 block max-w-full whitespace-normal break-words text-[clamp(1.35rem,2.3vw,1.9rem)] font-black leading-tight tracking-tight text-white tabular-nums">
                             {formatMoney(
                               Number(wallet.balance || 0),
                               wallet.currency || profile.currency
