@@ -41,6 +41,21 @@ const COLORS = {
   income: "#10b981",
 };
 
+const CATEGORY_COLORS = [
+  "#7c3aed",
+  "#8b5cf6",
+  "#a855f7",
+  "#ec4899",
+  "#f43f5e",
+  "#f97316",
+  "#fb923c",
+  "#eab308",
+  "#22c55e",
+  "#14b8a6",
+  "#06b6d4",
+  "#3b82f6",
+];
+
 function getWalletIdFromTransaction(transaction: any) {
   return transaction.walletId || transaction.wallet_id || "";
 }
@@ -331,12 +346,26 @@ export default function DashboardCharts({
               />
 
               <Bar
-                dataKey="Saldo disponível"
-                fill={COLORS.realBalance}
-                radius={[10, 10, 0, 0]}
-                maxBarSize={54}
-              />
-
+  dataKey="value"
+  radius={[10, 10, 0, 0]}
+>
+  {expensesByCategory.map((entry, index) => (
+    <Cell
+      key={`bar-${entry.name}`}
+      fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]}
+    />
+  ))}
+</Bar><Bar
+  dataKey="value"
+  radius={[10, 10, 0, 0]}
+>
+  {expensesByCategory.map((entry, index) => (
+    <Cell
+      key={`bar-${entry.name}`}
+      fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]}
+    />
+  ))}
+</Bar>
               <Bar
                 dataKey="Crédito restante"
                 fill={COLORS.creditAvailable}
@@ -364,20 +393,22 @@ export default function DashboardCharts({
             <div className="relative flex h-full items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={68}
-                    outerRadius={98}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-
+                 <Pie
+  data={expensesByCategory}
+  dataKey="value"
+  nameKey="name"
+  innerRadius={72}
+  outerRadius={108}
+  paddingAngle={4}
+  stroke="none"
+>
+  {expensesByCategory.map((entry, index) => (
+    <Cell
+      key={`cell-${entry.name}`}
+      fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]}
+    />
+  ))}
+</Pie>
                   <Tooltip
                     formatter={(value: number, name: string) => [
                       formatMoney(value, currency),
