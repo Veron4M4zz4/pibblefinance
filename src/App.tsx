@@ -787,6 +787,112 @@ export default function App() {
           </div>
         </div>
 
+        <div className="mb-8 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+          <div className="card-premium rounded-[28px] p-6">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">
+                Leitura rápida
+              </span>
+              <span className="rounded-full border border-indigo-400/20 bg-indigo-500/10 px-3 py-1 text-[11px] font-semibold text-indigo-200">
+                Saúde {totals.healthLabel}
+              </span>
+              <span
+                className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${
+                  totals.expenseTrendPercent > 0
+                    ? "border-rose-400/20 bg-rose-500/10 text-rose-200"
+                    : "border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+                }`}
+              >
+                Gastos {totals.expenseTrendPercent > 0 ? "+" : ""}
+                {Math.round(totals.expenseTrendPercent)}% em 7 dias
+              </span>
+            </div>
+
+            <h2 className="text-2xl font-black tracking-tight text-white">
+              {totals.mainInsight.title}
+            </h2>
+
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+              {totals.mainInsight.text}
+            </p>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                  Fluxo do período
+                </span>
+                <strong className="mt-2 block text-lg font-black text-white">
+                  {formatMoney(totals.netCashFlow, profile.currency)}
+                </strong>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                  Última entrada
+                </span>
+                <strong className="mt-2 block text-lg font-black text-white">
+                  {totals.daysSinceLastIncome === null
+                    ? "Sem registro"
+                    : totals.daysSinceLastIncome === 0
+                    ? "Hoje"
+                    : `${totals.daysSinceLastIncome} dias`}
+                </strong>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                  Última saída
+                </span>
+                <strong className="mt-2 block text-lg font-black text-white">
+                  {totals.daysSinceLastExpense === null
+                    ? "Sem registro"
+                    : totals.daysSinceLastExpense === 0
+                    ? "Hoje"
+                    : `${totals.daysSinceLastExpense} dias`}
+                </strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="card-premium rounded-[28px] p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                  Alertas simples
+                </span>
+                <p className="mt-1 text-sm text-slate-300">
+                  O que merece atenção agora.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {totals.alerts.slice(0, 2).map((alert) => (
+                <div
+                  key={alert.title}
+                  className={`rounded-2xl border p-4 ${
+                    alert.tone === "danger"
+                      ? "border-rose-400/20 bg-rose-500/10"
+                      : alert.tone === "warning"
+                      ? "border-amber-400/20 bg-amber-500/10"
+                      : "border-emerald-400/20 bg-emerald-500/10"
+                  }`}
+                >
+                  <strong className="block text-sm font-black text-white">
+                    {alert.title}
+                  </strong>
+                  <p className="mt-1 text-xs leading-5 text-white/75">
+                    {alert.text}
+                  </p>
+                  <p className="mt-2 text-xs font-semibold text-white/90">
+                    Próximo passo: {alert.suggestion}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div className="mb-8 inline-flex rounded-[22px] border border-white/10 bg-white/5 p-1 backdrop-blur-sm">
           <button
             onClick={() => setActiveTab("dashboard")}

@@ -23,6 +23,20 @@ export interface CoachFinancialContext {
   debitExpenses: number;
   healthScore: number;
   currency: "BRL" | "USD" | "EUR";
+  incomeLast7Days?: number;
+  incomePrev7Days?: number;
+  expenseLast7Days?: number;
+  expensePrev7Days?: number;
+  incomeTrendPercent?: number;
+  expenseTrendPercent?: number;
+  daysSinceLastIncome?: number | null;
+  daysSinceLastExpense?: number | null;
+  alerts?: Array<{
+    tone: "success" | "warning" | "danger";
+    title: string;
+    text: string;
+    suggestion: string;
+  }>;
 }
 
 export interface CoachChatTurn {
@@ -114,8 +128,9 @@ function formatContextLine(
 
 function buildFinancialContextSection(input: AskCoachPibbleInput) {
   const { context } = input;
+  const topAlert = context.alerts?.[0];
 
-  return [
+  const lines = [
     "Contexto financeiro:",
     formatContextLine("Saldo disponível", context.balance, context.currency),
     formatContextLine("Crédito restante", context.creditRemaining, context.currency),
@@ -124,7 +139,34 @@ function buildFinancialContextSection(input: AskCoachPibbleInput) {
     formatContextLine("Gastos no crédito", context.creditExpenses, context.currency),
     formatContextLine("Gastos no saldo", context.debitExpenses, context.currency),
     `- Índice de saúde financeira: ${Math.round(context.healthScore)}/100`,
-  ].join("\n");
+  ];
+
+  if (typeof context.expenseTrendPercent === "number") {
+    lines.push(
+      `- Tendência recente de gastos: ${Math.round(context.expenseTrendPercent)}%`
+    );
+  }
+
+  if (typeof context.incomeTrendPercent === "number") {
+    lines.push(
+      `- Tendência recente de entradas: ${Math.round(context.incomeTrendPercent)}%`
+    );
+  }
+
+  if (typeof context.daysSinceLastIncome === "number") {
+    lines.push(`- Dias desde a última entrada: ${context.daysSinceLastIncome}`);
+  }
+
+  if (typeof context.daysSinceLastExpense === "number") {
+    lines.push(`- Dias desde o último gasto: ${context.daysSinceLastExpense}`);
+  }
+
+  if (topAlert) {
+    lines.push(`- Alerta principal: ${topAlert.title}`);
+    lines.push(`- Motivo do alerta: ${topAlert.text}`);
+  }
+
+  return lines.join("\n");
 }
 
 function buildUserPrompt(input: AskCoachPibbleInput, intent: CoachIntent) {
@@ -197,6 +239,7 @@ function getLocalFallback(input: AskCoachPibbleInput) {
   const previousAssistantText = [...(input.history || [])]
     .reverse()
     .find((entry) => entry.role === "assistant")?.text || "";
+  const topAlert = input.context.alerts?.[0];
 
   const openers: Record<CoachIntent, string[]> = {
     score: [
@@ -265,9 +308,11 @@ function getLocalFallback(input: AskCoachPibbleInput) {
   };
 
   if (intent === "score") {
+    const alertHint = topAlert ? ` Ponto de atenção: ${topAlert.title.toLowerCase()}.` : "";
+
     return `${pickVariant(question, openers.score, previousAssistantText)} ${Math.round(
       input.context.healthScore
-    )}/100. ${describeScoreSignal(input.context)} ${pickVariant(
+    )}/100. ${describeScoreSignal(input.context)}${alertHint} ${pickVariant(
       question,
       followUps.score,
       previousAssistantText
@@ -286,10 +331,15 @@ function getLocalFallback(input: AskCoachPibbleInput) {
   }
 
   if (intent === "balance") {
+    const balanceHint =
+      input.context.balance >= input.context.totalExpenses
+        ? "Seu saldo hoje parece cobrir os gastos mais comuns."
+        : "Vale guardar uma folga maior para o fim do mês.";
+
     return `${pickVariant(question, openers.balance, previousAssistantText)} ${formatMoney(
       input.context.balance,
       input.context.currency
-    )}. ${pickVariant(question, followUps.balance, previousAssistantText)}`;
+    )}. ${balanceHint} ${pickVariant(question, followUps.balance, previousAssistantText)}`;
   }
 
   if (intent === "expenses") {
@@ -306,6 +356,8 @@ function getLocalFallback(input: AskCoachPibbleInput) {
     )}. ${pickVariant(question, followUps.income, previousAssistantText)}`;
   }
 
+  const generalAlertHint = topAlert ? ` ${topAlert.title}.` : "";
+
   return `${pickVariant(question, openers.general, previousAssistantText)} ${
     Math.round(input.context.healthScore)
   }/100, com ${formatMoney(input.context.balance, input.context.currency)} de saldo, ${formatMoney(
@@ -315,7 +367,7 @@ function getLocalFallback(input: AskCoachPibbleInput) {
     question,
     followUps.general,
     previousAssistantText
-  )}`;
+  )}${generalAlertHint}`;
 }
 
 async function requestOpenRouter(input: AskCoachPibbleInput, model: string) {

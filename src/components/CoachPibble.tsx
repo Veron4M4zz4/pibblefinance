@@ -121,6 +121,15 @@ export default function CoachPibble({
       debitExpenses: analysis.debitExpenses,
       healthScore: analysis.healthScore,
       currency,
+      incomeLast7Days: analysis.incomeLast7Days,
+      incomePrev7Days: analysis.incomePrev7Days,
+      expenseLast7Days: analysis.expenseLast7Days,
+      expensePrev7Days: analysis.expensePrev7Days,
+      incomeTrendPercent: analysis.incomeTrendPercent,
+      expenseTrendPercent: analysis.expenseTrendPercent,
+      daysSinceLastIncome: analysis.daysSinceLastIncome,
+      daysSinceLastExpense: analysis.daysSinceLastExpense,
+      alerts: analysis.alerts,
     } as const;
 
     const recentHistory = chatMessages.slice(-8).map((item) => ({
@@ -242,6 +251,78 @@ export default function CoachPibble({
           <p className="text-xs leading-6 text-white/80">
             {analysis.mainInsight.text}
           </p>
+        </div>
+
+        <div className="relative mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+              Leitura rápida
+            </span>
+            <strong className="mt-2 block text-sm font-black text-white">
+              {analysis.healthLabel}
+            </strong>
+            <p className="mt-1 text-xs leading-5 text-slate-400">
+              Score financeiro simplificado para entender o momento.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+              Gastos recentes
+            </span>
+            <strong
+              className={`mt-2 block text-sm font-black ${
+                analysis.expenseTrendPercent > 0
+                  ? "text-rose-300"
+                  : "text-emerald-300"
+              }`}
+            >
+              {analysis.expenseTrendPercent > 0 ? "+" : ""}
+              {Math.round(analysis.expenseTrendPercent)}%
+            </strong>
+            <p className="mt-1 text-xs leading-5 text-slate-400">
+              Comparação dos últimos 7 dias com o período anterior.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+              Última entrada
+            </span>
+            <strong className="mt-2 block text-sm font-black text-white">
+              {analysis.daysSinceLastIncome === null
+                ? "Sem registro"
+                : analysis.daysSinceLastIncome === 0
+                ? "Hoje"
+                : `${analysis.daysSinceLastIncome} dias`}
+            </strong>
+            <p className="mt-1 text-xs leading-5 text-slate-400">
+              Ajuda a entender se há renda nova entrando no caixa.
+            </p>
+          </div>
+        </div>
+
+        <div className="relative mt-4 grid gap-2 sm:grid-cols-2">
+          {analysis.alerts.slice(0, 2).map((alert) => (
+            <div
+              key={alert.title}
+              className={`rounded-3xl border p-4 ${
+                alert.tone === "danger"
+                  ? "border-rose-400/20 bg-rose-500/10"
+                  : alert.tone === "warning"
+                  ? "border-amber-400/20 bg-amber-500/10"
+                  : "border-emerald-400/20 bg-emerald-500/10"
+              }`}
+            >
+              <strong className="block text-sm font-black text-white">
+                {alert.title}
+              </strong>
+              <p className="mt-1 text-xs leading-5 text-white/75">{alert.text}</p>
+              <p className="mt-2 text-xs font-semibold text-white/90">
+                Próximo passo: {alert.suggestion}
+              </p>
+            </div>
+          ))}
         </div>
 
         <button
