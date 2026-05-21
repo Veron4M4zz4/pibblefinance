@@ -1,5 +1,18 @@
 import { supabase } from "./supabase";
 
+function normalizeTransactionRecord(transaction: any) {
+  return {
+    ...transaction,
+    walletId: transaction?.walletId || transaction?.wallet_id || "",
+    toWalletId: transaction?.toWalletId || transaction?.to_wallet_id || "",
+    description: transaction?.description || "",
+    category: transaction?.category || "",
+    type: transaction?.type || "expense",
+    amount: Number(transaction?.amount || 0),
+    date: transaction?.date || new Date().toISOString(),
+  };
+}
+
 async function getCurrentUserId() {
   const {
     data: { user },
@@ -108,7 +121,7 @@ export async function getTransactions() {
     return [];
   }
 
-  return data || [];
+  return (data || []).map(normalizeTransactionRecord);
 }
 
 async function updateWalletBalance(
@@ -192,7 +205,7 @@ export async function createTransaction(transaction: any) {
     await updateWalletBalance(transaction.toWalletId, amount, "add");
   }
 
-  return data;
+  return (data || []).map(normalizeTransactionRecord);
 }
 
 export async function deleteTransaction(transactionId: string) {
