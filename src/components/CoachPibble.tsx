@@ -189,7 +189,11 @@ export default function CoachPibble({
 
         <div className="relative mb-5 flex items-start justify-between gap-4">
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-indigo-200">
+            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] ${
+              isLight
+                ? "border-slate-200 bg-white text-slate-700"
+                : "border-indigo-400/20 bg-indigo-400/10 text-indigo-200"
+            }`}>
               <Brain size={13} />
               Coach Pibble IA
             </div>
@@ -409,7 +413,7 @@ export default function CoachPibble({
                   </div>
 
                   <div>
-                    <strong className="block text-sm font-black tracking-wide">
+                    <strong className="block text-sm font-black tracking-wide text-ui-title">
                       Coach Pibble
                     </strong>
                     <span className={`text-xs ${isLight ? "text-slate-600" : "text-slate-400"}`}>

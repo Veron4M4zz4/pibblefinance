@@ -144,12 +144,12 @@ export default function TransactionForm({
   return (
     <div className="card-premium rounded-[28px] p-6">
       <div className="mb-6">
-        <h3 className="font-display flex items-center gap-2 text-lg font-bold text-white">
+        <h3 className="font-display flex items-center gap-2 text-lg font-bold text-ui-title">
           <PlusCircle className="text-emerald-300" size={20} />
           Registrar Lançamento
         </h3>
 
-        <p className="mt-1 text-sm leading-6 text-slate-400">
+        <p className="mt-1 text-sm leading-6 text-ui-muted">
           Adicione suas movimentações para atualizar instantaneamente o saldo das
           contas.
         </p>
@@ -210,12 +210,12 @@ export default function TransactionForm({
         </div>
 
         <div>
-          <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+          <label className="mb-1 block text-ui-label">
             Valor ({currency})
           </label>
 
           <div className="relative">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono text-sm font-semibold text-slate-400">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono text-sm font-semibold text-ui-muted">
               {currency === "BRL" ? "R$" : currency === "USD" ? "$" : "€"}
             </span>
 
@@ -233,7 +233,7 @@ export default function TransactionForm({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+            <label className="mb-1 block text-ui-label">
               {type === "transfer" ? "Origem" : "Conta / Carteira"}
             </label>
 
@@ -257,7 +257,7 @@ export default function TransactionForm({
 
           {type === "transfer" ? (
             <div>
-              <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+              <label className="mb-1 block text-ui-label">
                 Destino
               </label>
 
@@ -282,7 +282,7 @@ export default function TransactionForm({
             </div>
           ) : (
             <div>
-              <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+              <label className="mb-1 block text-ui-label">
                 Categoria
               </label>
 
@@ -308,7 +308,7 @@ export default function TransactionForm({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+            <label className="mb-1 block text-ui-label">
               Data
             </label>
 
@@ -324,7 +324,7 @@ export default function TransactionForm({
           </div>
 
           <div>
-            <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+            <label className="mb-1 block text-ui-label">
               Descrição / Nota
             </label>
 
@@ -361,9 +361,9 @@ export default function TransactionForm({
               />
             </div>
 
-            <div className="text-[10px] font-medium text-slate-400">
+            <div className="text-xs font-medium text-ui-muted">
               Classificado em:{" "}
-              <strong className={isLight ? "text-slate-900" : "text-slate-200"}>
+              <strong className={isLight ? "text-slate-900" : "text-slate-100"}>
                 {PRESET_CATEGORIES.find((cat) => cat.id === category)?.name ||
                   category}
               </strong>

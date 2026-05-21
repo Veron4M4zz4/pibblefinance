@@ -122,18 +122,18 @@ export default function WalletForm({
 
   return (
     <div className="card-premium rounded-[28px] p-6">
-      <h3 className="font-display flex items-center gap-2 text-lg font-bold text-white">
+      <h3 className="font-display flex items-center gap-2 text-lg font-bold text-ui-title">
         <WalletIcon className="text-indigo-300" size={20} />
         Minhas Carteiras
       </h3>
 
-      <p className="mb-6 text-sm leading-6 text-slate-400">
+      <p className="mb-6 text-sm leading-6 text-ui-muted">
         Cadastre contas bancárias, cartões, dinheiro e investimentos.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+          <label className="mb-1.5 block text-ui-label">
             Nome da Carteira
           </label>
 
@@ -149,7 +149,7 @@ export default function WalletForm({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+            <label className="mb-1.5 block text-ui-label">
               Tipo de Conta
             </label>
 
@@ -167,7 +167,7 @@ export default function WalletForm({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+            <label className="mb-1.5 block text-ui-label">
               Saldo Inicial ({currency})
             </label>
 
@@ -184,7 +184,7 @@ export default function WalletForm({
         </div>
 
         <div>
-          <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+          <label className="mb-2 block text-ui-label">
             Tema & Aparência
           </label>
 
@@ -221,11 +221,11 @@ export default function WalletForm({
 
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-[10px] font-semibold uppercase tracking-[0.24em] opacity-80">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/80">
                   {WALLET_TYPES.find((w) => w.id === walletType)?.name}
                 </span>
 
-                <p className="font-display mt-0.5 max-w-[220px] truncate text-lg font-bold leading-tight">
+                <p className="font-display mt-0.5 max-w-[220px] truncate text-lg font-bold leading-tight text-white">
                   {walletName.trim() || "Minha Nova Conta"}
                 </p>
               </div>
@@ -236,11 +236,11 @@ export default function WalletForm({
             </div>
 
             <div className="mt-4">
-              <span className="block text-[10px] opacity-70">
+              <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-white/70">
                 Saldo Estimado
               </span>
 
-              <span className="font-mono text-2xl font-bold tracking-tight">
+              <span className="font-mono text-2xl font-bold tracking-tight text-white">
                 {formatMoney(Number(walletBalance) || 0, currency)}
               </span>
             </div>
