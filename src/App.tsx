@@ -38,6 +38,22 @@ import {
 
 import { motion } from "motion/react";
 
+function safeStorageSet(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    console.error(`Erro ao salvar ${key}:`, error);
+  }
+}
+
+function safeStorageRemove(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch (error) {
+    console.error(`Erro ao remover ${key}:`, error);
+  }
+}
+
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -80,7 +96,7 @@ export default function App() {
         "Usuário";
 
       setCurrentUser(name);
-      localStorage.setItem("pibblefinance:user", name);
+      safeStorageSet("pibblefinance:user", name);
 
       setProfile((prev) => ({
         ...prev,
@@ -148,13 +164,23 @@ export default function App() {
   }, []);
 
   async function loadWallets() {
-    const data = await getWallets();
-    setWallets(data);
+    try {
+      const data = await getWallets();
+      setWallets(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Erro ao carregar carteiras:", error);
+      setWallets([]);
+    }
   }
 
   async function loadTransactions() {
-    const data = await getTransactions();
-    setTransactions(data);
+    try {
+      const data = await getTransactions();
+      setTransactions(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Erro ao carregar transaÃ§Ãµes:", error);
+      setTransactions([]);
+    }
   }
 
   useEffect(() => {
@@ -257,7 +283,7 @@ export default function App() {
       joinedAt: new Date().toISOString(),
     };
 
-    localStorage.setItem("pibblefinance:user", trimmedName);
+    safeStorageSet("pibblefinance:user", trimmedName);
     setProfile(newProfile);
     setCurrentUser(trimmedName);
   }
@@ -270,7 +296,7 @@ export default function App() {
       joinedAt: new Date().toISOString(),
     };
 
-    localStorage.setItem("pibblefinance:user", "Verona Mazza");
+    safeStorageSet("pibblefinance:user", "Verona Mazza");
     setProfile(seededProfile);
     setCurrentUser("Verona Mazza");
   }
@@ -329,8 +355,8 @@ export default function App() {
       console.error("Erro ao fazer logout:", error.message);
     }
 
-    localStorage.removeItem("pibblefinance:user");
-    localStorage.removeItem("pibblefinance:profile");
+    safeStorageRemove("pibblefinance:user");
+    safeStorageRemove("pibblefinance:profile");
 
     setSession(null);
     setCurrentUser("");

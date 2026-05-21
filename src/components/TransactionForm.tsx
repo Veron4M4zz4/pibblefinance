@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { PRESET_CATEGORIES } from "../utils/constants";
 import CategoryIcon from "./CategoryIcon";
 import {
@@ -16,10 +16,9 @@ import type { Wallet, Transaction, TransactionType } from "../types";
 
 interface TransactionFormProps {
   wallets: Wallet[];
-  onAddTransaction: (transaction: Omit<Transaction, "id">) => void;
+  onAddTransaction: (transaction: Omit<Transaction, "id">) => void | Promise<void>;
   currency: "BRL" | "USD" | "EUR";
 }
-
 function getWalletTypeLabel(type?: string) {
   if (type === "credit") return "Crédito";
   if (type === "debit") return "Débito";
@@ -33,6 +32,16 @@ function getWalletTypeLabel(type?: string) {
 
 function getWalletOptionLabel(wallet: Wallet) {
   return `${wallet.name} — ${getWalletTypeLabel(wallet.type)}`;
+}
+
+function toSafeIsoDate(dateValue: string) {
+  const parsed = new Date(dateValue);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString();
 }
 
 export default function TransactionForm({
@@ -50,6 +59,7 @@ export default function TransactionForm({
     const today = new Date();
     return today.toISOString().split("T")[0];
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const activeCategories = useMemo(() => {
     if (type === "transfer") return [];
@@ -58,37 +68,52 @@ export default function TransactionForm({
     );
   }, [type]);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!amount || Number(amount) <= 0) return;
+    if (!amount || Number(amount) <= 0 || isSubmitting) return;
 
-    if (type === "transfer") {
-      if (!walletId || !toWalletId || walletId === toWalletId) return;
+    const safeDate = toSafeIsoDate(date);
 
-      onAddTransaction({
-        type,
-        amount: Number(amount),
-        category: "Transferência",
-        walletId,
-        toWalletId,
-        description: description.trim() || "Transferência entre contas",
-        date: new Date(date).toISOString(),
-      });
-    } else {
-      if (!walletId || !category) return;
-
-      onAddTransaction({
-        type,
-        amount: Number(amount),
-        category,
-        walletId,
-        description: description.trim(),
-        date: new Date(date).toISOString(),
-      });
+    if (!safeDate) {
+      console.error("Data inválida ao registrar transação:", date);
+      return;
     }
 
-    setAmount("");
-    setDescription("");
+    setIsSubmitting(true);
+
+    try {
+      if (type === "transfer") {
+        if (!walletId || !toWalletId || walletId === toWalletId) return;
+
+        await onAddTransaction({
+          type,
+          amount: Number(amount),
+          category: "Transferência",
+          walletId,
+          toWalletId,
+          description: description.trim() || "Transferência entre contas",
+          date: safeDate,
+        });
+      } else {
+        if (!walletId || !category) return;
+
+        await onAddTransaction({
+          type,
+          amount: Number(amount),
+          category,
+          walletId,
+          description: description.trim(),
+          date: safeDate,
+        });
+      }
+
+      setAmount("");
+      setDescription("");
+    } catch (error) {
+      console.error("Erro ao registrar transação:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function handleTypeChange(newType: TransactionType) {
@@ -319,9 +344,9 @@ export default function TransactionForm({
 
         <button
           type="submit"
-          disabled={!isFormValid}
+          disabled={!isFormValid || isSubmitting}
           className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-3 text-xs font-semibold text-white shadow-xs transition-all duration-200 ${
-            isFormValid
+            isFormValid && !isSubmitting
               ? "bg-slate-900 hover:bg-slate-800 active:scale-97"
               : "cursor-not-allowed bg-slate-200 text-slate-400"
           }`}
@@ -332,7 +357,9 @@ export default function TransactionForm({
             <PlusCircle size={14} />
           )}
 
-          {type === "transfer"
+          {isSubmitting
+            ? "Salvando..."
+            : type === "transfer"
             ? "Realizar Transferência"
             : type === "income"
             ? "Registrar Entrada"

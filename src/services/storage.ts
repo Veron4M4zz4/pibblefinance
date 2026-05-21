@@ -1,5 +1,18 @@
 import { supabase } from "./supabase";
 
+function normalizeWalletRecord(wallet: any) {
+  return {
+    ...wallet,
+    name: wallet?.name || "Carteira",
+    type: wallet?.type || "checking",
+    balance: Number(wallet?.balance || 0),
+    color:
+      wallet?.color ||
+      "from-indigo-600 to-violet-800 text-white border-indigo-500",
+    currency: wallet?.currency || "BRL",
+  };
+}
+
 function normalizeTransactionRecord(transaction: any) {
   return {
     ...transaction,
@@ -43,7 +56,7 @@ export async function getWallets() {
     return [];
   }
 
-  return data || [];
+  return (data || []).map(normalizeWalletRecord);
 }
 
 export async function createWallet(wallet: any) {
@@ -66,7 +79,7 @@ export async function createWallet(wallet: any) {
     return null;
   }
 
-  return data;
+  return (data || []).map(normalizeWalletRecord);
 }
 
 export async function updateWallet(walletId: string, wallet: any) {
@@ -86,7 +99,7 @@ export async function updateWallet(walletId: string, wallet: any) {
     return null;
   }
 
-  return data;
+  return (data || []).map(normalizeWalletRecord);
 }
 
 export async function deleteWallet(walletId: string) {

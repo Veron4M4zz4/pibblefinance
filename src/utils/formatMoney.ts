@@ -2,7 +2,10 @@ export function formatMoney(
   value: number,
   currency: "BRL" | "USD" | "EUR" = "BRL"
 ) {
-  const safeCurrency = currency || "BRL";
+  const safeCurrency =
+    currency === "BRL" || currency === "USD" || currency === "EUR"
+      ? currency
+      : "BRL";
 
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -11,9 +14,15 @@ export function formatMoney(
 }
 
 export function formatDate(date: string) {
+  const parsedDate = new Date(date);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "Data inválida";
+  }
+
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  }).format(new Date(date));
+  }).format(parsedDate);
 }

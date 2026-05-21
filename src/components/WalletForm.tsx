@@ -88,25 +88,33 @@ export default function WalletForm({
 
     setIsSubmitting(true);
 
-    const newWallet: Omit<Wallet, "id"> = {
-      name: walletName.trim(),
-      type: walletType,
-      balance: Number(walletBalance),
-      color: COLOR_PRESETS[selectedColorIndex].class,
-      currency,
-    };
+    try {
+      const safeColor =
+        COLOR_PRESETS[selectedColorIndex]?.class || COLOR_PRESETS[1].class;
 
-    if (onAddWallet) {
-      await onAddWallet(newWallet);
-    } else {
-      await createWallet(newWallet);
+      const newWallet: Omit<Wallet, "id"> = {
+        name: walletName.trim(),
+        type: walletType,
+        balance: Number(walletBalance),
+        color: safeColor,
+        currency,
+      };
+
+      if (onAddWallet) {
+        await onAddWallet(newWallet);
+      } else {
+        await createWallet(newWallet);
+      }
+
+      setWalletName("");
+      setWalletBalance("");
+      setWalletType("checking");
+      setSelectedColorIndex(1);
+    } catch (error) {
+      console.error("Erro ao cadastrar carteira:", error);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setWalletName("");
-    setWalletBalance("");
-    setWalletType("checking");
-    setSelectedColorIndex(1);
-    setIsSubmitting(false);
   }
 
   return (
