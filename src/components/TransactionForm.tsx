@@ -13,6 +13,7 @@ import {
   ArrowDownCircle,
 } from "lucide-react";
 import type { Wallet, Transaction, TransactionType } from "../types";
+import { useTheme } from "../context/ThemeProvider";
 
 interface TransactionFormProps {
   wallets: Wallet[];
@@ -49,6 +50,8 @@ export default function TransactionForm({
   onAddTransaction,
   currency,
 }: TransactionFormProps) {
+  const { resolvedTheme } = useTheme();
+  const isLight = resolvedTheme === "light";
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
@@ -159,7 +162,11 @@ export default function TransactionForm({
             onClick={() => handleTypeChange("expense")}
             className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-2xl border py-3 text-xs font-semibold transition-all ${
               type === "expense"
-                ? "border-rose-400/20 bg-rose-500/10 text-rose-200 shadow-xs"
+                ? isLight
+                  ? "border-rose-200 bg-rose-50 text-rose-700 shadow-xs"
+                  : "border-rose-400/20 bg-rose-500/10 text-rose-200 shadow-xs"
+                : isLight
+                ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                 : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/8"
             }`}
           >
@@ -172,7 +179,11 @@ export default function TransactionForm({
             onClick={() => handleTypeChange("income")}
             className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-2xl border py-3 text-xs font-semibold transition-all ${
               type === "income"
-                ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200 shadow-xs"
+                ? isLight
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 shadow-xs"
+                  : "border-emerald-400/20 bg-emerald-500/10 text-emerald-200 shadow-xs"
+                : isLight
+                ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                 : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/8"
             }`}
           >
@@ -185,7 +196,11 @@ export default function TransactionForm({
             onClick={() => handleTypeChange("transfer")}
             className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-2xl border py-3 text-xs font-semibold transition-all ${
               type === "transfer"
-                ? "border-sky-400/20 bg-sky-500/10 text-sky-200 shadow-xs"
+                ? isLight
+                  ? "border-sky-200 bg-sky-50 text-sky-700 shadow-xs"
+                  : "border-sky-400/20 bg-sky-500/10 text-sky-200 shadow-xs"
+                : isLight
+                ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                 : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/8"
             }`}
           >
@@ -223,7 +238,9 @@ export default function TransactionForm({
             </label>
 
             <select
-              className="field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all"
+              className={`field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all ${
+                isLight ? "bg-white text-slate-900" : ""
+              }`}
               value={walletId}
               onChange={(e) => setWalletId(e.target.value)}
               required
@@ -245,7 +262,9 @@ export default function TransactionForm({
               </label>
 
               <select
-                className="field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all"
+                className={`field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all ${
+                  isLight ? "bg-white text-slate-900" : ""
+                }`}
                 value={toWalletId}
                 onChange={(e) => setToWalletId(e.target.value)}
                 required
@@ -268,7 +287,9 @@ export default function TransactionForm({
               </label>
 
               <select
-                className="field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all"
+                className={`field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all ${
+                  isLight ? "bg-white text-slate-900" : ""
+                }`}
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 required
@@ -293,7 +314,9 @@ export default function TransactionForm({
 
             <input
               type="date"
-              className="field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all"
+              className={`field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all ${
+                isLight ? "bg-white text-slate-900" : ""
+              }`}
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required
@@ -316,7 +339,13 @@ export default function TransactionForm({
         </div>
 
         {type !== "transfer" && category && (
-          <div className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/5 p-3">
+          <div
+            className={`flex items-center gap-2.5 rounded-2xl border p-3 ${
+              isLight
+                ? "border-slate-200 bg-white"
+                : "border-white/10 bg-white/5"
+            }`}
+          >
             <div
               className={`shrink-0 rounded-lg p-1.5 ${
                 PRESET_CATEGORIES.find((cat) => cat.id === category)?.color ||
@@ -334,7 +363,7 @@ export default function TransactionForm({
 
             <div className="text-[10px] font-medium text-slate-400">
               Classificado em:{" "}
-              <strong className="text-slate-200">
+              <strong className={isLight ? "text-slate-900" : "text-slate-200"}>
                 {PRESET_CATEGORIES.find((cat) => cat.id === category)?.name ||
                   category}
               </strong>
@@ -345,9 +374,13 @@ export default function TransactionForm({
         <button
           type="submit"
           disabled={!isFormValid || isSubmitting}
-          className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-3 text-xs font-semibold text-white shadow-xs transition-all duration-200 ${
+          className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-3 text-xs font-semibold shadow-xs transition-all duration-200 ${
             isFormValid && !isSubmitting
-              ? "bg-white text-slate-950 hover:bg-slate-100 active:scale-97"
+              ? isLight
+                ? "border border-slate-200 bg-slate-900 text-white hover:bg-slate-800 active:scale-97"
+                : "bg-white text-slate-950 hover:bg-slate-100 active:scale-97"
+              : isLight
+              ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
               : "cursor-not-allowed bg-white/10 text-slate-500"
           }`}
         >

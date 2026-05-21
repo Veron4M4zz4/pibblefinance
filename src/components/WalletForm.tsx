@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Wallet, WalletType } from "../types";
 import { WALLET_TYPES } from "../utils/constants";
 import { formatMoney } from "../utils/formatMoney";
+import { useTheme } from "../context/ThemeProvider";
 
 import {
   Building2,
@@ -62,6 +63,8 @@ export default function WalletForm({
   currency = "BRL",
   onAddWallet,
 }: WalletFormProps) {
+  const { resolvedTheme } = useTheme();
+  const isLight = resolvedTheme === "light";
   const [walletName, setWalletName] = useState("");
   const [walletType, setWalletType] = useState<WalletType>("checking");
   const [walletBalance, setWalletBalance] = useState("");
@@ -247,7 +250,11 @@ export default function WalletForm({
         <button
           type="submit"
           disabled={!walletName.trim() || !walletBalance || isSubmitting}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3.5 text-sm font-semibold text-slate-950 shadow-md transition-all duration-200 hover:bg-slate-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+          className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold shadow-md transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
+            isLight
+              ? "border border-slate-200 bg-slate-900 text-white hover:bg-slate-800"
+              : "bg-white text-slate-950 hover:bg-slate-100"
+          }`}
         >
           <Plus size={16} />
           {isSubmitting ? "Cadastrando..." : "Cadastrar Carteira"}

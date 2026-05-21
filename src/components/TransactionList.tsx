@@ -19,6 +19,7 @@ import {
 import type { Transaction, Wallet } from "../types";
 import { PRESET_CATEGORIES } from "../utils/constants";
 import { formatDate, formatMoney } from "../utils/formatMoney";
+import { useTheme } from "../context/ThemeProvider";
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -91,6 +92,8 @@ export default function TransactionList({
   onDeleteTransaction,
   currency,
 }: TransactionListProps) {
+  const { resolvedTheme } = useTheme();
+  const isLight = resolvedTheme === "light";
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [walletFilter, setWalletFilter] = useState("all");
@@ -251,17 +254,17 @@ export default function TransactionList({
     Number(search.trim().length > 0);
 
   return (
-    <div className="card-premium rounded-[28px] p-6 text-white">
+    <div className={`card-premium rounded-[28px] p-6 ${isLight ? "text-slate-900" : "text-white"}`}>
       <div className="mb-5 flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">
             <FileSpreadsheet size={12} />
             Histórico de lançamentos
           </div>
-          <h3 className="text-xl font-black tracking-tight text-white">
+          <h3 className={`text-xl font-black tracking-tight ${isLight ? "text-slate-950" : "text-white"}`}>
             Transações recentes
           </h3>
-          <p className="mt-1 text-sm leading-6 text-slate-400">
+          <p className={`mt-1 text-sm leading-6 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
             Pesquise, filtre e exporte o que entrou, saiu ou foi transferido.
           </p>
         </div>
@@ -273,6 +276,8 @@ export default function TransactionList({
             className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
               showAdvanced || activeFiltersCount > 0
                 ? "border-indigo-400/30 bg-indigo-500/10 text-indigo-200"
+                : isLight
+                ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                 : "border-white/10 bg-white/6 text-slate-300 hover:bg-white/10"
             }`}
           >
@@ -284,7 +289,11 @@ export default function TransactionList({
             type="button"
             onClick={handleCopySummary}
             disabled={filteredTransactions.length === 0}
-            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/6 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              isLight
+                ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                : "border-white/10 bg-white/6 text-slate-300 hover:bg-white/10"
+            }`}
           >
             <ClipboardCopy size={13} />
             {copiedState === "copied" ? "Copiado" : "Copiar resumo"}
@@ -294,7 +303,11 @@ export default function TransactionList({
             type="button"
             onClick={handleExportCSV}
             disabled={filteredTransactions.length === 0}
-            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/6 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              isLight
+                ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                : "border-white/10 bg-white/6 text-slate-300 hover:bg-white/10"
+            }`}
           >
             <FileSpreadsheet size={13} />
             Exportar CSV
@@ -311,7 +324,11 @@ export default function TransactionList({
           <input
             type="text"
             placeholder="Buscar por título, categoria, carteira ou descrição"
-            className="w-full rounded-2xl border border-white/10 bg-white/6 py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-indigo-400/40 focus:bg-white/8"
+            className={`w-full rounded-2xl border py-3 pl-10 pr-4 text-sm outline-none transition placeholder:text-slate-500 focus:border-indigo-400/40 ${
+              isLight
+                ? "border-slate-200 bg-white text-slate-900 focus:bg-white"
+                : "border-white/10 bg-white/6 text-white focus:bg-white/8"
+            }`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -325,13 +342,17 @@ export default function TransactionList({
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden"
             >
-              <div className="grid grid-cols-1 gap-3 rounded-3xl border border-white/10 bg-white/5 p-4 text-xs md:grid-cols-3">
+              <div className={`grid grid-cols-1 gap-3 rounded-3xl border p-4 text-xs md:grid-cols-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
                 <div>
                   <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                     Tipo
                   </label>
                   <select
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none"
+                    className={`w-full rounded-2xl border px-3 py-2.5 text-sm outline-none ${
+                      isLight
+                        ? "border-slate-200 bg-white text-slate-900"
+                        : "border-white/10 bg-slate-950 text-white"
+                    }`}
                     value={typeFilter}
                     onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
                   >
@@ -347,7 +368,11 @@ export default function TransactionList({
                     Carteira
                   </label>
                   <select
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none"
+                    className={`w-full rounded-2xl border px-3 py-2.5 text-sm outline-none ${
+                      isLight
+                        ? "border-slate-200 bg-white text-slate-900"
+                        : "border-white/10 bg-slate-950 text-white"
+                    }`}
                     value={walletFilter}
                     onChange={(e) => setWalletFilter(e.target.value)}
                   >
@@ -365,7 +390,11 @@ export default function TransactionList({
                     Período
                   </label>
                   <select
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none"
+                    className={`w-full rounded-2xl border px-3 py-2.5 text-sm outline-none ${
+                      isLight
+                        ? "border-slate-200 bg-white text-slate-900"
+                        : "border-white/10 bg-slate-950 text-white"
+                    }`}
                     value={periodFilter}
                     onChange={(e) => setPeriodFilter(e.target.value as PeriodFilter)}
                   >
@@ -391,12 +420,12 @@ export default function TransactionList({
 
       <div className="max-h-[460px] space-y-2.5 overflow-y-auto pr-1">
         {filteredTransactions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-white/10 bg-white/5 px-4 py-14 text-center text-slate-400">
-            <SlidersHorizontal size={24} className="mb-2 text-slate-500" />
-            <p className="text-sm font-semibold text-slate-200">
+          <div className={`flex flex-col items-center justify-center rounded-3xl border border-dashed px-4 py-14 text-center ${isLight ? "border-slate-200 bg-white text-slate-600" : "border-white/10 bg-white/5 text-slate-400"}`}>
+            <SlidersHorizontal size={24} className={`mb-2 ${isLight ? "text-slate-400" : "text-slate-500"}`} />
+            <p className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-slate-200"}`}>
               Nenhum lançamento encontrado
             </p>
-            <p className="mt-1 max-w-sm text-xs leading-6 text-slate-500">
+            <p className={`mt-1 max-w-sm text-xs leading-6 ${isLight ? "text-slate-600" : "text-slate-500"}`}>
               {transactions.length === 0
                 ? "Cadastre movimentações para começar a ver seu histórico."
                 : "Ajuste os filtros ou limpe a busca para ver mais resultados."}
@@ -429,11 +458,19 @@ export default function TransactionList({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.96 }}
-                  className="flex items-center justify-between gap-4 rounded-3xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/8"
+                  className={`flex items-center justify-between gap-4 rounded-3xl border p-4 transition ${
+                    isLight
+                      ? "border-slate-200 bg-white hover:bg-slate-50"
+                      : "border-white/10 bg-white/5 hover:bg-white/8"
+                  }`}
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <div
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-slate-900/70 ${toneClass}`}
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${
+                        isLight
+                          ? "border-slate-200 bg-slate-100"
+                          : "border-white/10 bg-slate-900/70"
+                      } ${toneClass}`}
                     >
                       {transaction.type === "transfer" ? (
                         <RefreshCw size={15} />
@@ -446,15 +483,17 @@ export default function TransactionList({
 
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="truncate text-sm font-bold text-white">
+                        <span className={`truncate text-sm font-bold ${isLight ? "text-slate-950" : "text-white"}`}>
                           {description}
                         </span>
-                        <span className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] ${
+                          isLight ? "border-slate-200 bg-white text-slate-600" : "border-white/10 bg-white/6 text-slate-400"
+                        }`}>
                           {categoryLabel}
                         </span>
                       </div>
 
-                      <p className="mt-1 text-xs leading-5 text-slate-400">
+                      <p className={`mt-1 text-xs leading-5 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
                         {transaction.type === "transfer" ? (
                           <span>
                             De{" "}
@@ -501,7 +540,11 @@ export default function TransactionList({
                     <button
                       type="button"
                       onClick={() => onDeleteTransaction(transaction.id)}
-                      className="rounded-xl border border-white/10 bg-white/6 p-2 text-slate-400 transition hover:border-rose-400/30 hover:bg-rose-500/10 hover:text-rose-200"
+                      className={`rounded-xl border p-2 transition ${
+                        isLight
+                          ? "border-slate-200 bg-white text-slate-500 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
+                          : "border-white/10 bg-white/6 text-slate-400 hover:border-rose-400/30 hover:bg-rose-500/10 hover:text-rose-200"
+                      }`}
                       title="Excluir lançamento"
                     >
                       <Trash2 size={13} />

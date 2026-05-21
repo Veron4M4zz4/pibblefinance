@@ -96,6 +96,7 @@ function getRelativeTimeLabel(isoDate?: string | null) {
 
 export default function App() {
   const { resolvedTheme, toggleTheme } = useTheme();
+  const isLightTheme = resolvedTheme === "light";
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState("");
@@ -668,6 +669,14 @@ export default function App() {
     { id: "profile", label: "Perfil", icon: UserRound },
   ] as const;
 
+  const mobilePrimaryActionClass = isLightTheme
+    ? "flex-1 rounded-xl border border-slate-200 bg-slate-900 py-3 text-xs font-bold text-white transition hover:bg-slate-800"
+    : "flex-1 rounded-xl bg-white py-3 text-xs font-bold text-slate-950 transition hover:bg-slate-100";
+
+  const mobileSecondaryActionClass = isLightTheme
+    ? "flex-1 rounded-xl border border-slate-200 bg-white py-3 text-xs font-bold text-slate-900 transition hover:bg-slate-50"
+    : "flex-1 rounded-xl border border-white/10 bg-white/5 py-3 text-xs font-bold text-slate-200 transition hover:bg-white/10";
+
   return (
     <main className="release-shell min-h-screen bg-mesh-radial pb-12 text-slate-800">
       <header className="surface-premium sticky top-0 z-50 px-6 py-4 backdrop-blur-2xl">
@@ -823,14 +832,14 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setMobileTab("coach")}
-                    className="flex-1 rounded-xl bg-white py-3 text-xs font-bold text-slate-950 transition hover:bg-slate-100"
+                    className={mobilePrimaryActionClass}
                   >
                     Abrir Coach
                   </button>
                   <button
                     type="button"
                     onClick={() => setMobileTab("wallets")}
-                    className="flex-1 rounded-xl border border-white/10 bg-white/5 py-3 text-xs font-bold text-slate-200 transition hover:bg-white/10"
+                    className={mobileSecondaryActionClass}
                   >
                     Ver carteiras
                   </button>
@@ -871,16 +880,30 @@ export default function App() {
                       key={alert.title}
                       className={`rounded-2xl border p-3 ${
                         alert.tone === "danger"
-                          ? "border-rose-400/20 bg-rose-500/10"
+                          ? isLightTheme
+                            ? "border-rose-200 bg-rose-50"
+                            : "border-rose-400/20 bg-rose-500/10"
                           : alert.tone === "warning"
-                          ? "border-amber-400/20 bg-amber-500/10"
+                          ? isLightTheme
+                            ? "border-amber-200 bg-amber-50"
+                            : "border-amber-400/20 bg-amber-500/10"
+                          : isLightTheme
+                          ? "border-emerald-200 bg-emerald-50"
                           : "border-emerald-400/20 bg-emerald-500/10"
                       }`}
                     >
-                      <strong className="block text-sm font-black text-white">
+                      <strong
+                        className={`block text-sm font-black ${
+                          isLightTheme ? "text-slate-950" : "text-white"
+                        }`}
+                      >
                         {alert.title}
                       </strong>
-                      <p className="mt-1 text-xs leading-5 text-white/75">
+                      <p
+                        className={`mt-1 text-xs leading-5 ${
+                          isLightTheme ? "text-slate-700" : "text-white/75"
+                        }`}
+                      >
                         {alert.text}
                       </p>
                     </div>
@@ -924,17 +947,33 @@ export default function App() {
                           wallet.type
                         )}`}
                       />
-                      <div className="pointer-events-none absolute right-0 top-0 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+                      <div
+                        className={`pointer-events-none absolute right-0 top-0 h-24 w-24 rounded-full blur-2xl ${
+                          isLightTheme ? "bg-white/35" : "bg-white/10"
+                        }`}
+                      />
                       <div className="relative flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <strong className="block truncate text-base font-black text-white">
                             {wallet.name}
                           </strong>
                           <div className="mt-2 flex flex-wrap gap-2">
-                            <span className="rounded-full border border-white/10 bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">
+                            <span
+                              className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${
+                                isLightTheme
+                                  ? "border-white/70 bg-white/80 text-slate-700"
+                                  : "border-white/10 bg-white/10 text-white/80"
+                              }`}
+                            >
                               {getWalletTypeLabel(wallet.type)}
                             </span>
-                            <span className="rounded-full border border-white/10 bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">
+                            <span
+                              className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${
+                                isLightTheme
+                                  ? "border-white/70 bg-white/80 text-slate-700"
+                                  : "border-white/10 bg-white/10 text-white/80"
+                              }`}
+                            >
                               {wallet.currency || profile.currency}
                             </span>
                           </div>
@@ -943,7 +982,11 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => handleStartEditWallet(wallet)}
-                          className="rounded-xl border border-white/20 bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
+                          className={`rounded-xl border p-2 transition ${
+                            isLightTheme
+                              ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+                              : "border-white/20 bg-white/10 text-white/80 hover:bg-white/20 hover:text-white"
+                          }`}
                           title="Editar carteira"
                         >
                           <Edit3 size={14} />
