@@ -1649,32 +1649,75 @@ export default function App() {
         )}
       </section>
 
-      <nav className="fixed inset-x-0 bottom-0 z-[60] border-t border-white/10 bg-slate-950/90 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur-2xl md:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-5 gap-1">
+      <nav className="fixed inset-x-0 bottom-0 z-[60] px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 md:hidden">
+        <div
+          className={`mx-auto max-w-lg rounded-[28px] border p-2 backdrop-blur-2xl ${
+            isLightTheme
+              ? "border-slate-200/80 bg-white/92 shadow-[0_-18px_40px_rgba(15,23,42,0.08)]"
+              : "border-white/10 bg-slate-950/88 shadow-[0_-24px_60px_rgba(2,6,23,0.45)]"
+          }`}
+        >
+          <div className="grid grid-cols-5 gap-1">
           {mobileNavigationItems.map((item) => {
             const Icon = item.icon;
             const isActive = mobileTab === item.id;
 
             return (
-              <button
+              <motion.button
                 key={item.id}
                 type="button"
                 onClick={() => setMobileTab(item.id)}
-                className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[10px] font-semibold transition ${
+                whileTap={{ scale: 0.97 }}
+                whileHover={{ y: -1 }}
+                transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                aria-pressed={isActive}
+                aria-current={isActive ? "page" : undefined}
+                className={`relative flex min-h-[58px] flex-col items-center justify-center gap-1 overflow-hidden rounded-[20px] px-2 py-2 text-[10px] font-semibold transition ${
                   isActive
                     ? isLightTheme
-                      ? "bg-slate-900 text-white shadow-sm"
-                      : "bg-white text-slate-950 shadow-sm"
+                      ? "text-white shadow-sm"
+                      : "text-slate-950 shadow-sm"
                     : isLightTheme
                     ? "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                     : "text-slate-400 hover:bg-white/5 hover:text-white"
                 }`}
               >
-                <Icon size={16} />
-                <span className="leading-none">{item.label}</span>
-              </button>
+                {isActive && (
+                  <motion.div
+                    layoutId="mobileNavActivePill"
+                    className={`pointer-events-none absolute inset-0 rounded-[20px] ${
+                      isLightTheme
+                        ? "bg-slate-900 shadow-[0_10px_24px_rgba(15,23,42,0.18)]"
+                        : "bg-white shadow-[0_10px_24px_rgba(2,6,23,0.26)]"
+                    }`}
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10 flex flex-col items-center gap-1">
+                  <Icon
+                    size={16}
+                    className={
+                      isActive
+                        ? isLightTheme
+                          ? "text-white"
+                          : "text-slate-950"
+                        : "text-current"
+                    }
+                  />
+                  <span className="leading-none">{item.label}</span>
+                </span>
+                {isActive && (
+                  <motion.span
+                    layoutId="mobileNavDot"
+                    className={`pointer-events-none absolute bottom-1 h-1.5 w-1.5 rounded-full ${
+                      isLightTheme ? "bg-white/85" : "bg-slate-950/85"
+                    }`}
+                  />
+                )}
+              </motion.button>
             );
           })}
+          </div>
         </div>
       </nav>
 

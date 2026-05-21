@@ -298,12 +298,6 @@
   border-color: rgba(15, 23, 42, 0.08);
 }
 
-[data-theme="light"] .release-shell .md\:hidden nav.fixed {
-  background: rgba(255, 255, 255, 0.92);
-  border-top-color: rgba(15, 23, 42, 0.08);
-  box-shadow: 0 -18px 40px rgba(15, 23, 42, 0.08);
-}
-
 [data-theme="light"] .release-shell .md\:hidden .card-premium,
 [data-theme="light"] .release-shell .md\:hidden .surface-premium {
   background: rgba(255, 255, 255, 0.88);
@@ -323,23 +317,10 @@
   border-color: rgba(15, 23, 42, 0.08);
 }
 
-[data-theme="light"] .release-shell .md\:hidden nav.fixed button {
-  color: #475569;
-}
-
-[data-theme="light"] .release-shell .md\:hidden nav.fixed button:hover {
-  background-color: rgba(248, 250, 252, 0.95);
-  color: #0f172a;
-}
-
-[data-theme="light"] .release-shell .md\:hidden nav.fixed button.bg-white {
-  background: #0f172a;
-  color: #ffffff;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
-}
-
-[data-theme="light"] .release-shell .md\:hidden nav.fixed button.bg-white:hover {
-  background: #020617;
+[data-theme="light"] .release-shell .md\:hidden nav.fixed > div {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 -18px 40px rgba(15, 23, 42, 0.08);
 }
 
 [data-theme="light"] .release-shell .md\:hidden .text-white,
