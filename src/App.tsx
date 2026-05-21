@@ -1662,7 +1662,11 @@ export default function App() {
                 onClick={() => setMobileTab(item.id)}
                 className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[10px] font-semibold transition ${
                   isActive
-                    ? "bg-white text-slate-950 shadow-sm"
+                    ? isLightTheme
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "bg-white text-slate-950 shadow-sm"
+                    : isLightTheme
+                    ? "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                     : "text-slate-400 hover:bg-white/5 hover:text-white"
                 }`}
               >
