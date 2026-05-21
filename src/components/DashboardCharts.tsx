@@ -275,24 +275,28 @@ export default function DashboardCharts({
     <div className="card-premium rounded-[28px] p-6">
       <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">
+          <div className={`mb-2 inline-flex items-center gap-2 rounded-full border px-3 py-1 ${isLight ? "border-slate-200 bg-white text-slate-700" : "border-white/10 bg-white/6 text-slate-300"} text-ui-label`}>
             <BarChart3 size={12} />
             Análise financeira
           </div>
-          <h3 className="font-display text-lg font-bold text-white">
+          <h3 className="font-display text-lg font-bold text-ui-title">
             Entenda seu dinheiro com mais clareza
           </h3>
-          <p className="mt-1 text-sm leading-6 text-slate-400">
+          <p className="mt-1 text-sm leading-6 text-ui-muted">
             Entradas, gastos e uso do cartão explicados de forma simples.
           </p>
         </div>
 
-        <div className="flex rounded-2xl border border-white/10 bg-white/6 p-1">
+        <div className={`flex rounded-2xl border p-1 ${isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-white/6"}`}>
           <button
             onClick={() => setActiveTab("overview")}
             className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
               activeTab === "overview"
-                ? "bg-white text-slate-950 shadow-xs"
+                ? isLight
+                  ? "bg-slate-900 text-white shadow-xs"
+                  : "bg-white text-slate-950 shadow-xs"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900"
                 : "text-slate-400 hover:text-white"
             }`}
           >
@@ -304,7 +308,11 @@ export default function DashboardCharts({
             onClick={() => setActiveTab("categories")}
             className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
               activeTab === "categories"
-                ? "bg-white text-slate-950 shadow-xs"
+                ? isLight
+                  ? "bg-slate-900 text-white shadow-xs"
+                  : "bg-white text-slate-950 shadow-xs"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900"
                 : "text-slate-400 hover:text-white"
             }`}
           >
@@ -316,10 +324,10 @@ export default function DashboardCharts({
 
       <div className="mb-5 grid gap-3 lg:grid-cols-3">
         <div className={`rounded-2xl p-4 ${cardToneClass}`}>
-          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+          <span className="text-ui-label">
             Resumo rápido
           </span>
-          <p className="mt-2 text-sm leading-6 text-slate-200">
+          <p className="mt-2 text-sm leading-6 text-ui-body">
             {simpleReading.balanceNote}.{" "}
             {simpleReading.creditShare > 0
               ? `${simpleReading.creditShare}% dos gastos foram no cartão.`
@@ -328,19 +336,19 @@ export default function DashboardCharts({
         </div>
 
         <div className={`rounded-2xl p-4 ${cardToneClass}`}>
-          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+          <span className="text-ui-label">
             Entradas
           </span>
-          <p className="mt-2 text-sm leading-6 text-slate-200">
+          <p className="mt-2 text-sm leading-6 text-ui-body">
             {simpleReading.incomeTrend} em relação à semana anterior.
           </p>
         </div>
 
         <div className={`rounded-2xl p-4 ${cardToneClass}`}>
-          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+          <span className="text-ui-label">
             Gastos
           </span>
-          <p className="mt-2 text-sm leading-6 text-slate-200">
+          <p className="mt-2 text-sm leading-6 text-ui-body">
             {simpleReading.expenseTrend} em relação à semana anterior.
           </p>
         </div>
@@ -373,7 +381,7 @@ export default function DashboardCharts({
             CreditCard,
           ],
         ].map(([label, value, color, Icon]: any) => (
-          <div key={label} className={`rounded-2xl p-4 ${cardToneClass}`}>
+              <div key={label} className={`rounded-2xl p-4 ${cardToneClass}`}>
             <div
               className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.24em]"
               style={{ color }}
@@ -382,7 +390,7 @@ export default function DashboardCharts({
               {label}
             </div>
 
-            <strong className="block text-xl font-black tracking-tight text-white">
+            <strong className="block text-xl text-ui-value">
               {formatMoney(value, currency)}
             </strong>
           </div>
@@ -394,15 +402,15 @@ export default function DashboardCharts({
           <div className={`h-[360px] w-full rounded-[24px] p-4 ${cardToneClass}`}>
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-black text-white">
+                <p className="text-sm font-black text-ui-title">
                   Seu dinheiro nos últimos 14 dias
                 </p>
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-1 text-xs text-ui-muted">
                   Linha verde = entradas. Linha laranja = gastos.
                 </p>
               </div>
 
-              <div className="flex gap-3 text-[11px] font-bold text-slate-400">
+              <div className="flex gap-3 text-[11px] font-bold text-ui-muted">
                 <span className="flex items-center gap-1">
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
                   Entradas
@@ -522,10 +530,10 @@ export default function DashboardCharts({
               </ResponsiveContainer>
 
               <div className="pointer-events-none absolute flex flex-col items-center justify-center text-center">
-                <span className="text-xs font-bold uppercase tracking-[0.24em] text-slate-400">
+                <span className="text-ui-label">
                   Total gasto
                 </span>
-                <span className="mt-1 font-mono text-base font-black text-white">
+                <span className="mt-1 font-mono text-base text-ui-value">
                   {formatMoney(financialOverview.totalExpense, currency)}
                 </span>
               </div>
@@ -549,12 +557,12 @@ export default function DashboardCharts({
                           style={{ backgroundColor: item.color }}
                         />
 
-                        <strong className="truncate text-xs font-bold text-slate-100">
+                        <strong className="truncate text-xs font-bold text-ui-title">
                           {item.name}
                         </strong>
                       </div>
 
-                      <span className="shrink-0 font-mono text-xs font-bold text-white">
+                      <span className="shrink-0 font-mono text-xs font-bold text-ui-value">
                         {formatMoney(item.value, currency)}
                       </span>
                     </div>
@@ -569,7 +577,7 @@ export default function DashboardCharts({
                       />
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 text-[10px] text-slate-400">
+                    <div className="flex items-center justify-between gap-2 text-[10px] text-ui-muted">
                       <span>{percentage}% dos gastos</span>
                       <span className="truncate text-right">
                         Dinheiro: {formatMoney(item.realValue, currency)} · Cartão:{" "}
@@ -582,12 +590,12 @@ export default function DashboardCharts({
             </div>
           </div>
         ) : (
-          <div className="flex h-[340px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/10 bg-white/5 text-slate-400">
-            <TrendingUp size={36} className="mb-2 text-indigo-300/60" />
-            <p className="text-sm font-semibold text-slate-200">
+          <div className={`flex h-[340px] flex-col items-center justify-center rounded-2xl border-2 border-dashed text-ui-muted ${isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-white/5"}`}>
+            <TrendingUp size={36} className={`mb-2 ${isLight ? "text-indigo-400/80" : "text-indigo-300/60"}`} />
+            <p className="text-sm font-semibold text-ui-title">
               Sem gastos cadastrados
             </p>
-            <p className="mt-1 px-4 text-center text-xs text-slate-500">
+            <p className="mt-1 px-4 text-center text-xs text-ui-muted">
               Registre uma saída para ver como o dinheiro foi dividido.
             </p>
           </div>
