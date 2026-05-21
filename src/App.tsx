@@ -40,10 +40,13 @@ import {
   PiggyBank,
   Sparkles,
   RefreshCw,
+  SunMedium,
+  MoonStar,
   Wallet as WalletIcon,
 } from "lucide-react";
 
 import { motion } from "motion/react";
+import { useTheme } from "./context/ThemeProvider";
 
 function safeStorageSet(key: string, value: string) {
   try {
@@ -87,6 +90,7 @@ function getRelativeTimeLabel(isoDate?: string | null) {
 }
 
 export default function App() {
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState("");
@@ -528,13 +532,26 @@ export default function App() {
 
   if (!session?.user && !currentUser) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 p-6">
+      <main className="flex min-h-screen items-center justify-center p-6">
         <div className="w-full max-w-lg">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-3xl border border-slate-800 bg-slate-900/70 p-8 shadow-2xl backdrop-blur-xl"
+            className="card-premium relative rounded-3xl p-8"
           >
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+              title={`Alternar para tema ${resolvedTheme === "dark" ? "claro" : "escuro"}`}
+            >
+              {resolvedTheme === "dark" ? (
+                <SunMedium size={14} className="text-amber-300" />
+              ) : (
+                <MoonStar size={14} className="text-indigo-300" />
+              )}
+            </button>
+
             <div className="mb-8 flex flex-col items-center text-center">
               <img
                 src="/logo-pibble.png"
@@ -577,7 +594,7 @@ export default function App() {
                   placeholder="Ex: Verona"
                   value={userName}
                   onChange={(event) => setUserName(event.target.value)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-indigo-500"
+                  className="field-premium w-full rounded-xl px-4 py-3 text-sm outline-none"
                 />
               </div>
 
@@ -593,7 +610,7 @@ export default function App() {
                       event.target.value as "BRL" | "USD" | "EUR"
                     )
                   }
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-indigo-500"
+                  className="field-premium w-full rounded-xl px-4 py-3 text-sm outline-none"
                 >
                   <option value="BRL">R$ (BRL)</option>
                   <option value="USD">$ (USD)</option>
@@ -636,7 +653,7 @@ export default function App() {
 
   return (
     <main className="release-shell min-h-screen bg-mesh-radial pb-12 text-slate-800">
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/70 px-6 py-4 backdrop-blur-2xl">
+      <header className="surface-premium sticky top-0 z-50 px-6 py-4 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img
@@ -688,6 +705,22 @@ export default function App() {
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
             </select>
+
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-bold text-slate-200 transition hover:bg-white/10"
+              title={`Alternar para tema ${resolvedTheme === "dark" ? "claro" : "escuro"}`}
+            >
+              {resolvedTheme === "dark" ? (
+                <SunMedium size={14} className="text-amber-300" />
+              ) : (
+                <MoonStar size={14} className="text-indigo-300" />
+              )}
+              <span className="hidden sm:inline">
+                {resolvedTheme === "dark" ? "Claro" : "Escuro"}
+              </span>
+            </button>
 
             <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-indigo-500/30 bg-indigo-500/10 shadow-sm">
               {googleAvatarUrl ? (

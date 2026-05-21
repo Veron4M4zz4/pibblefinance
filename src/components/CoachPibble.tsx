@@ -177,7 +177,7 @@ export default function CoachPibble({
 
   return (
     <>
-      <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/75 p-6 text-white shadow-[0_24px_80px_rgba(2,6,23,0.45)] backdrop-blur-xl">
+      <div className="card-premium relative overflow-hidden rounded-[28px] p-6 text-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(99,102,241,0.18),_transparent_34%),radial-gradient(circle_at_bottom_left,_rgba(16,185,129,0.12),_transparent_30%)]" />
 
         <div className="relative mb-5 flex items-start justify-between gap-4">
@@ -361,9 +361,9 @@ export default function CoachPibble({
               initial={{ y: 48, opacity: 0, scale: 0.97 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
               transition={{ type: "spring", damping: 24, stiffness: 260 }}
-              className="flex h-[720px] w-screen max-w-[420px] flex-col overflow-hidden rounded-t-[28px] border border-white/10 bg-slate-950 shadow-[0_30px_100px_rgba(2,6,23,0.45)] md:mb-4 md:mr-4 md:w-full md:rounded-[28px]"
+              className="surface-premium flex h-[720px] w-screen max-w-[420px] flex-col overflow-hidden rounded-t-[28px] md:mb-4 md:mr-4 md:w-full md:rounded-[28px]"
             >
-              <div className="flex items-center justify-between border-b border-white/10 bg-slate-950/95 px-5 py-4 text-white">
+              <div className="flex items-center justify-between border-b border-white/10 bg-transparent px-5 py-4 text-white">
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/6">
                     <Sparkles size={18} className="text-indigo-300" />
@@ -388,7 +388,7 @@ export default function CoachPibble({
                 </button>
               </div>
 
-              <div className="flex-1 space-y-4 overflow-y-auto bg-slate-950 px-5 py-5 text-white [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700 hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
+              <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5 text-white [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700 hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
                 {chatMessages.map((item) => (
                   <motion.div
                     key={item.id}
@@ -456,7 +456,7 @@ export default function CoachPibble({
                 <div ref={messagesEndRef} />
               </div>
 
-              <div className="border-t border-white/10 bg-slate-950 px-4 py-4">
+              <div className="border-t border-white/10 bg-transparent px-4 py-4">
                 <div className="mb-3 flex flex-wrap gap-2">
                   {QUICK_PROMPTS.map((suggestion) => (
                     <button

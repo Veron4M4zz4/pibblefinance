@@ -251,7 +251,7 @@ export default function TransactionList({
     Number(search.trim().length > 0);
 
   return (
-    <div className="rounded-[28px] border border-white/10 bg-slate-950/75 p-6 text-white shadow-[0_24px_80px_rgba(2,6,23,0.35)] backdrop-blur-xl">
+    <div className="card-premium rounded-[28px] p-6 text-white">
       <div className="mb-5 flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">
