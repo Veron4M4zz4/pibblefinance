@@ -42,6 +42,11 @@ import {
   RefreshCw,
   SunMedium,
   MoonStar,
+  House,
+  Wallet as WalletNavIcon,
+  ArrowLeftRight,
+  Bot,
+  UserRound,
   Wallet as WalletIcon,
 } from "lucide-react";
 
@@ -115,6 +120,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "wallets" | "transactions"
   >("dashboard");
+  const [mobileTab, setMobileTab] = useState<
+    "home" | "wallets" | "transactions" | "coach" | "profile"
+  >("home");
 
   const [userName, setUserName] = useState("");
   const [selectedCurrency, setSelectedCurrency] = useState<
@@ -491,6 +499,7 @@ export default function App() {
     setWallets([]);
     setTransactions([]);
     setActiveTab("dashboard");
+    setMobileTab("home");
 
     setProfile({
       name: "",
@@ -651,10 +660,18 @@ export default function App() {
     session?.user?.user_metadata?.picture ||
     "";
 
+  const mobileNavigationItems = [
+    { id: "home", label: "Home", icon: House },
+    { id: "wallets", label: "Carteiras", icon: WalletNavIcon },
+    { id: "transactions", label: "Transações", icon: ArrowLeftRight },
+    { id: "coach", label: "Coach", icon: Bot },
+    { id: "profile", label: "Perfil", icon: UserRound },
+  ] as const;
+
   return (
     <main className="release-shell min-h-screen bg-mesh-radial pb-12 text-slate-800">
       <header className="surface-premium sticky top-0 z-50 px-6 py-4 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4">
+        <div className="mx-auto flex max-w-[1400px] flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             <img
               src="/logo-pibble.png"
@@ -673,8 +690,8 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-semibold text-slate-400 md:flex">
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-semibold text-slate-400 lg:flex">
               <Clock3 size={13} className="text-indigo-300" />
               {isRefreshing
                 ? "Sincronizando..."
@@ -750,7 +767,369 @@ export default function App() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-[1440px] px-4 pb-10 pt-6 sm:px-6 lg:px-8">
+      <div className="md:hidden px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+7rem)]">
+        <div className="space-y-4">
+          {mobileTab === "home" && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="card-premium rounded-[24px] p-4">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                    Saldo
+                  </span>
+                  <strong className="mt-2 block text-[1.35rem] font-black tracking-tight text-white">
+                    {formatMoney(totals.cashBalance, profile.currency)}
+                  </strong>
+                </div>
+
+                <div className="card-premium rounded-[24px] p-4">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                    Crédito
+                  </span>
+                  <strong className="mt-2 block text-[1.35rem] font-black tracking-tight text-white">
+                    {formatMoney(totals.creditRemaining, profile.currency)}
+                  </strong>
+                </div>
+
+                <div className="card-premium rounded-[24px] p-4">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                    Saídas
+                  </span>
+                  <strong className="mt-2 block text-[1.35rem] font-black tracking-tight text-white">
+                    {formatMoney(totals.totalExpenses, profile.currency)}
+                  </strong>
+                </div>
+
+                <div className="card-premium rounded-[24px] p-4">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                    Score
+                  </span>
+                  <strong className="mt-2 block text-[1.35rem] font-black tracking-tight text-white">
+                    {totals.healthScore}/100
+                  </strong>
+                </div>
+              </div>
+
+              <div className="card-premium rounded-[28px] p-4">
+                <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                  Leitura rápida
+                </span>
+                <h2 className="mt-2 text-lg font-black tracking-tight text-white">
+                  {totals.mainInsight.title}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  {totals.mainInsight.text}
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMobileTab("coach")}
+                    className="flex-1 rounded-xl bg-white py-3 text-xs font-bold text-slate-950 transition hover:bg-slate-100"
+                  >
+                    Abrir Coach
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobileTab("wallets")}
+                    className="flex-1 rounded-xl border border-white/10 bg-white/5 py-3 text-xs font-bold text-slate-200 transition hover:bg-white/10"
+                  >
+                    Ver carteiras
+                  </button>
+                </div>
+              </div>
+
+              <details className="card-premium rounded-[28px] p-4">
+                <summary className="flex list-none items-center justify-between gap-3 text-sm font-bold text-white">
+                  Ver análises
+                  <span className="text-xs font-semibold text-slate-400">
+                    gráficos e histórico
+                  </span>
+                </summary>
+                <div className="mt-4">
+                  <DashboardCharts
+                    wallets={wallets}
+                    transactions={transactions}
+                    currency={profile.currency}
+                  />
+                </div>
+              </details>
+
+              <div className="card-premium rounded-[28px] p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                      Alertas
+                    </span>
+                    <p className="mt-1 text-sm text-slate-300">
+                      O que merece atenção agora.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5">
+                  {totals.alerts.slice(0, 2).map((alert) => (
+                    <div
+                      key={alert.title}
+                      className={`rounded-2xl border p-3 ${
+                        alert.tone === "danger"
+                          ? "border-rose-400/20 bg-rose-500/10"
+                          : alert.tone === "warning"
+                          ? "border-amber-400/20 bg-amber-500/10"
+                          : "border-emerald-400/20 bg-emerald-500/10"
+                      }`}
+                    >
+                      <strong className="block text-sm font-black text-white">
+                        {alert.title}
+                      </strong>
+                      <p className="mt-1 text-xs leading-5 text-white/75">
+                        {alert.text}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {mobileTab === "wallets" && (
+            <>
+              <WalletForm currency={profile.currency} onAddWallet={handleAddWallet} />
+
+              <div className="card-premium rounded-[28px] p-4">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-black tracking-tight text-white">
+                      Carteiras
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-400">
+                      Uma visão rápida dos seus saldos.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-bold text-slate-300">
+                    {walletOverview.totalCount}
+                  </span>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {walletOverview.wallets.map((wallet) => (
+                    <div
+                      key={wallet.id}
+                      className={`relative overflow-hidden rounded-[24px] border p-4 ${resolveWalletThemeClass(
+                        wallet.color,
+                        wallet.type
+                      )}`}
+                    >
+                      <div
+                        className={`pointer-events-none absolute inset-y-0 left-0 w-1.5 ${resolveWalletAccentClass(
+                          wallet.color,
+                          wallet.type
+                        )}`}
+                      />
+                      <div className="pointer-events-none absolute right-0 top-0 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+                      <div className="relative flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <strong className="block truncate text-base font-black text-white">
+                            {wallet.name}
+                          </strong>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="rounded-full border border-white/10 bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">
+                              {getWalletTypeLabel(wallet.type)}
+                            </span>
+                            <span className="rounded-full border border-white/10 bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">
+                              {wallet.currency || profile.currency}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditWallet(wallet)}
+                          className="rounded-xl border border-white/20 bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
+                          title="Editar carteira"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                      </div>
+
+                      <div className="relative mt-5 border-t border-white/10 pt-4">
+                        <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-white/60">
+                          Saldo atual
+                        </span>
+                        <strong className="mt-1 block break-words text-[1.15rem] font-black leading-tight tracking-tight text-white tabular-nums">
+                          {formatMoney(
+                            Number(wallet.balance || 0),
+                            wallet.currency || profile.currency
+                          )}
+                        </strong>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {mobileTab === "transactions" && (
+            <>
+              <TransactionForm
+                wallets={wallets}
+                onAddTransaction={handleAddTransaction}
+                currency={profile.currency}
+              />
+              <TransactionList
+                transactions={transactions}
+                wallets={wallets}
+                currency={profile.currency}
+                onDeleteTransaction={handleDeleteTransaction}
+              />
+            </>
+          )}
+
+          {mobileTab === "coach" && (
+            <CoachPibble
+              wallets={wallets}
+              transactions={transactions}
+              currency={profile.currency}
+            />
+          )}
+
+          {mobileTab === "profile" && (
+            <div className="space-y-4">
+              <div className="card-premium rounded-[28px] p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-indigo-500/30 bg-indigo-500/10 shadow-sm">
+                    {googleAvatarUrl ? (
+                      <img
+                        src={googleAvatarUrl}
+                        alt={profile.name || currentUser || "Foto do usuário"}
+                        className="h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div
+                        className={`flex h-full w-full items-center justify-center text-sm font-black ${avatarColors}`}
+                      >
+                        {firstLetter}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0">
+                    <strong className="block truncate text-base font-black text-white">
+                      {profile.name || currentUser || "Usuário"}
+                    </strong>
+                    <p className="text-sm text-slate-400">
+                      {profile.currency} · {resolvedTheme === "dark" ? "Tema escuro" : "Tema claro"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card-premium rounded-[28px] p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                      Configurações rápidas
+                    </span>
+                    <p className="mt-1 text-sm text-slate-300">
+                      Ajustes de uso diário no celular.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                      Moeda
+                    </label>
+                    <select
+                      value={profile.currency}
+                      onChange={(event) =>
+                        handleChangeCurrency(event.target.value as "BRL" | "USD" | "EUR")
+                      }
+                      className="field-premium w-full rounded-2xl px-4 py-3 text-sm outline-none"
+                    >
+                      <option value="BRL">BRL</option>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={toggleTheme}
+                    className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10"
+                  >
+                    <span className="flex items-center gap-2">
+                      {resolvedTheme === "dark" ? (
+                        <SunMedium size={15} className="text-amber-300" />
+                      ) : (
+                        <MoonStar size={15} className="text-indigo-300" />
+                      )}
+                      Alternar tema
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {resolvedTheme === "dark" ? "Claro" : "Escuro"}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => refreshWorkspace()}
+                    disabled={isRefreshing}
+                    className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <span className="flex items-center gap-2">
+                      <RefreshCw
+                        size={15}
+                        className={isRefreshing ? "animate-spin text-indigo-300" : "text-indigo-300"}
+                      />
+                      Atualizar dados
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {isRefreshing ? "Agora" : getRelativeTimeLabel(lastSyncAt)}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm font-bold text-rose-200 transition hover:bg-rose-500/15"
+                  >
+                    <LogOut size={15} />
+                    Sair da conta
+                  </button>
+                </div>
+              </div>
+
+              <div className="card-premium rounded-[28px] p-4">
+                <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                  Visão geral
+                </span>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                      Carteiras
+                    </span>
+                    <strong className="mt-1 block text-lg font-black text-white">
+                      {walletOverview.totalCount}
+                    </strong>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                      Saúde
+                    </span>
+                    <strong className="mt-1 block text-lg font-black text-white">
+                      {totals.healthLabel}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <section className="hidden md:block mx-auto max-w-[1440px] px-4 pb-10 pt-6 sm:px-6 lg:px-8">
         <div className="mb-8 grid gap-4 lg:grid-cols-[1.3fr_0.9fr_0.9fr_0.9fr]">
           <div className="card-premium relative overflow-hidden rounded-[28px] p-6 lg:p-7">
             <div className="pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-indigo-500/10 blur-3xl" />
@@ -1226,6 +1605,31 @@ export default function App() {
           </div>
         )}
       </section>
+
+      <nav className="fixed inset-x-0 bottom-0 z-[60] border-t border-white/10 bg-slate-950/90 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur-2xl md:hidden">
+        <div className="mx-auto grid max-w-lg grid-cols-5 gap-1">
+          {mobileNavigationItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = mobileTab === item.id;
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setMobileTab(item.id)}
+                className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[10px] font-semibold transition ${
+                  isActive
+                    ? "bg-white text-slate-950 shadow-sm"
+                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                <Icon size={16} />
+                <span className="leading-none">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
 
     {editingWallet && (
   <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/40 backdrop-blur-md p-4">
