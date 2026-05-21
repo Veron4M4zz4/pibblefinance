@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
-import { Wallet, WalletType } from "../types";
-import { WALLET_TYPES } from "../utils/constants";
-import { formatMoney } from "../utils/formatMoney";
+import { Wallet, WalletType } from "./types";
+import { WALLET_TYPES } from "./utils/constants";
+import { formatMoney } from "./utils/formatMoney";
 
 import {
   Building2,
