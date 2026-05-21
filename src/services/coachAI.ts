@@ -7,26 +7,34 @@ const MODELS = [
 ];
 
 const SYSTEM_PROMPT = `
-Você é o Coach Pibble, conselheiro financeiro do app PibbleFinance.
+Você é o Coach Pibble, conselheiro financeiro inteligente do app PibbleFinance.
 
 PERSONALIDADE:
 - Você é um filhotinho fofo, amigável e esperto.
-- Seja carinhoso, mas objetivo.
-- Fale como um app financeiro moderno.
+- Seja acolhedor, mas inteligente.
+- Fale como um coach financeiro moderno.
+- Evite respostas genéricas e repetidas.
 
 REGRAS:
 - Responda sempre em português do Brasil.
-- Seja curto, mas útil.
-- Não responda sempre igual.
-- Não use ##, # ou títulos markdown complexos.
-- Use apenas texto simples, listas e **negrito**.
-- Dê uma recomendação prática baseada nos dados.
-- Termine com uma pergunta curta.
+- Seja curto e útil.
+- Use respostas naturais.
+- Nunca repita exatamente a mesma estrutura.
+- Não use markdown complexo.
+- Não use títulos com ##.
+- Use emojis com moderação.
+- Faça análises baseadas nos dados reais recebidos.
+- Termine com uma pergunta curta para continuar a conversa.
 
-FORMATO:
+ESTILO:
+- Explique de forma simples.
+- Dê sugestões práticas.
+- Seja conversacional.
+
+FORMATO IDEAL:
 🐾 Resumo
 
-💡 Minha sugestão
+💡 Sugestão prática
 
 ❓ Próximo passo
 `;
@@ -36,139 +44,225 @@ function extractValue(prompt: string, label: string) {
   return prompt.match(regex)?.[1]?.trim() || "não informado";
 }
 
+function getUserQuestion(prompt: string) {
+  const match = prompt.match(/Pergunta do usuário:\s*(.+)/i);
+
+  return match?.[1]?.trim().toLowerCase() || "";
+}
+
 function getLocalFallback(prompt: string) {
-  const lowerPrompt = prompt.toLowerCase();
+  const userQuestion = getUserQuestion(prompt);
 
   const saldo = extractValue(prompt, "Saldo disponível");
   const creditoRestante = extractValue(prompt, "Crédito restante");
   const gastosCredito = extractValue(prompt, "Gastos no crédito");
   const gastosTotais = extractValue(prompt, "Gastos totais");
   const entradas = extractValue(prompt, "Entradas");
-  const score = prompt.match(/Score financeiro:\s*(\d+)\/100/i)?.[1] || "0";
 
-  if (lowerPrompt.includes("score")) {
+  const score =
+    prompt.match(/Score financeiro:\s*(\d+)\/100/i)?.[1] || "0";
+
+  // SCORE
+  if (
+    userQuestion.includes("score") ||
+    userQuestion.includes("pontuação")
+  ) {
     return `🐾 Resumo
 
-Seu score atual é **${score}/100**. Isso indica que sua saúde financeira precisa de atenção.
+Seu score financeiro atual é **${score}/100**.
 
-💡 Minha sugestão
+💡 Sugestão prática
 
-- Reduza gastos no crédito.
-- Registre entradas de dinheiro.
-- Priorize contas essenciais.
+- Seus gastos podem estar altos em relação às entradas.
+- Evite depender demais do crédito.
+- Tente manter uma sobra no final do mês.
 
 ❓ Próximo passo
 
-Quer que eu te explique o que mais derrubou seu score?`;
+Quer que eu te mostre o principal fator que afetou seu score?`;
   }
 
-  if (lowerPrompt.includes("saldo")) {
+  // CRÉDITO
+  if (
+    userQuestion.includes("crédito") ||
+    userQuestion.includes("credito") ||
+    userQuestion.includes("cartão") ||
+    userQuestion.includes("fatura")
+  ) {
     return `🐾 Resumo
 
-Seu saldo disponível é **${saldo}**. Ele parece apertado para cobrir novos gastos.
+Você ainda possui **${creditoRestante}** de crédito disponível e já utilizou **${gastosCredito}** no cartão.
 
-💡 Minha sugestão
+💡 Sugestão prática
 
-- Evite compras não essenciais.
-- Use crédito só se for realmente necessário.
-- Separe uma reserva mínima para urgências.
+- Evite novas parcelas agora.
+- Confira se sua próxima fatura cabe no orçamento.
+- Use saldo em conta para gastos menores.
 
 ❓ Próximo passo
 
-Você ainda tem alguma conta para pagar este mês?`;
+Quer que eu avalie se seu uso de crédito está saudável?`;
   }
 
-  if (lowerPrompt.includes("crédito") || lowerPrompt.includes("credito")) {
+  // SALDO
+  if (
+    userQuestion.includes("saldo") ||
+    userQuestion.includes("dinheiro") ||
+    userQuestion.includes("conta")
+  ) {
     return `🐾 Resumo
 
-Você tem **${creditoRestante}** de crédito restante, mas já gastou **${gastosCredito}** no cartão.
+Seu saldo disponível atual é **${saldo}**.
 
-💡 Minha sugestão
+💡 Sugestão prática
 
-- Evite parcelar novas compras.
-- Confira a próxima fatura.
-- Use saldo/pix para gastos pequenos.
+- Priorize gastos essenciais.
+- Evite compras impulsivas por enquanto.
+- Mantenha uma pequena reserva de emergência.
 
 ❓ Próximo passo
 
-Essa fatura cabe no seu próximo recebimento?`;
+Você ainda tem contas importantes para pagar este mês?`;
   }
 
+  // GASTOS
+  if (
+    userQuestion.includes("gasto") ||
+    userQuestion.includes("despesa")
+  ) {
+    return `🐾 Resumo
+
+Você registrou **${gastosTotais}** em gastos até agora.
+
+💡 Sugestão prática
+
+- Reveja despesas recorrentes.
+- Pequenos gastos acumulam rápido.
+- Corte o que não estiver sendo usado.
+
+❓ Próximo passo
+
+Quer ajuda para identificar onde economizar mais?`;
+  }
+
+  // ENTRADAS
+  if (
+    userQuestion.includes("entrada") ||
+    userQuestion.includes("receber") ||
+    userQuestion.includes("receita")
+  ) {
+    return `🐾 Resumo
+
+Você possui **${entradas}** registrados como entradas de dinheiro.
+
+💡 Sugestão prática
+
+- Tente manter entradas maiores que os gastos.
+- Organize recebimentos previstos.
+- Evite gastar antes de receber.
+
+❓ Próximo passo
+
+Você tem algum valor previsto para entrar nos próximos dias?`;
+  }
+
+  // RESPOSTA GERAL
   return `🐾 Resumo
 
-Seu score está em **${score}/100**. Você tem **${saldo}** de saldo, **${entradas}** em entradas e **${gastosTotais}** em gastos.
+Seu score atual está em **${score}/100**.
+Você possui **${saldo}** disponíveis, com **${entradas}** em entradas e **${gastosTotais}** em gastos.
 
-💡 Minha sugestão
+💡 Sugestão prática
 
-- Segure novos gastos por enquanto.
-- Priorize contas essenciais.
-- Registre qualquer entrada prevista.
+- Continue acompanhando seus gastos diariamente.
+- Evite usar crédito sem necessidade.
+- Organizar pequenas despesas já faz diferença.
 
 ❓ Próximo passo
 
-Você tem previsão de receber algum valor?`;
+Quer que eu analise qual área financeira precisa mais de atenção agora?`;
 }
 
 async function requestOpenRouter(prompt: string, model: string) {
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": window.location.origin,
-      "X-Title": "PibbleFinance",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 320,
-      temperature: 0.7,
-      messages: [
-        {
-          role: "system",
-          content: SYSTEM_PROMPT.trim(),
-        },
-        {
-          role: "user",
-          content: prompt.trim(),
-        },
-      ],
-    }),
-  });
+  const response = await fetch(
+    "https://openrouter.ai/api/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": window.location.origin,
+        "X-Title": "PibbleFinance",
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.8,
+        max_tokens: 220,
+        messages: [
+          {
+            role: "system",
+            content: SYSTEM_PROMPT.trim(),
+          },
+          {
+            role: "user",
+            content: prompt.trim(),
+          },
+        ],
+      }),
+    }
+  );
 
   const data = await response.json();
 
-  console.log(`OPENROUTER RESPONSE - ${model}:`, data);
+  console.log(`OPENROUTER RESPONSE (${model})`, data);
 
   if (!response.ok || data.error) {
-    throw new Error(data?.error?.message || `Falha no modelo ${model}`);
+    throw new Error(
+      data?.error?.message || `Erro ao usar modelo ${model}`
+    );
   }
 
-  const content = data?.choices?.[0]?.message?.content?.trim();
+  const content =
+    data?.choices?.[0]?.message?.content?.trim();
 
   if (!content || content.length < 10) {
-    throw new Error(`Modelo ${model} respondeu vazio`);
+    throw new Error(`Resposta inválida do modelo ${model}`);
   }
 
   return content;
 }
 
-export async function askCoachPibble(prompt: string): Promise<string> {
+export async function askCoachPibble(
+  prompt: string
+): Promise<string> {
   if (!prompt.trim()) {
-    return "Me manda uma dúvida financeira, fofinha 🐾";
+    return "Me conta sua dúvida financeira 🐾";
   }
 
+  // fallback local
   if (!OPENROUTER_API_KEY) {
     return getLocalFallback(prompt);
   }
 
- for (const model of MODELS) {
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  for (const model of MODELS) {
     try {
-      return await requestOpenRouter(prompt, model);
+      await new Promise((resolve) =>
+        setTimeout(resolve, 400)
+      );
+
+      const response = await requestOpenRouter(
+        prompt,
+        model
+      );
+
+      if (response) {
+        return response;
+      }
     } catch (error) {
-      console.warn(`Modelo falhou: ${model}`, error);
+      console.warn(`Modelo falhou (${model})`, error);
     }
   }
 
+  // fallback final
   return getLocalFallback(prompt);
 }
