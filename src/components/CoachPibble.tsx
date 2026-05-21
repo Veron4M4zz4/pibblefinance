@@ -190,21 +190,28 @@ export default function CoachPibble({
     setMessage("");
     setIsLoading(true);
 
-    const financialContext = `
-Saldo disponível: ${formatMoney(analysis.totalDebit, currency)}
-Crédito restante: ${formatMoney(analysis.totalCredit, currency)}
-Entradas: ${formatMoney(analysis.totalIncome, currency)}
-Gastos totais: ${formatMoney(analysis.totalExpenses, currency)}
-Gastos no crédito: ${formatMoney(analysis.creditExpenses, currency)}
-Gastos no saldo: ${formatMoney(analysis.debitExpenses, currency)}
-Score financeiro: ${analysis.healthScore}/100
+    const financialContext = {
+      balance: analysis.totalDebit,
+      creditRemaining: analysis.totalCredit,
+      income: analysis.totalIncome,
+      totalExpenses: analysis.totalExpenses,
+      creditExpenses: analysis.creditExpenses,
+      debitExpenses: analysis.debitExpenses,
+      healthScore: analysis.healthScore,
+      currency,
+    } as const;
 
-Pergunta do usuário:
-${userText}
-`;
+    const recentHistory = chatMessages.slice(-8).map((item) => ({
+      role: item.role === "coach" ? ("assistant" as const) : ("user" as const),
+      text: item.text,
+    }));
 
     try {
-      const coachText = await askCoachPibble(financialContext);
+      const coachText = await askCoachPibble({
+        question: userText,
+        context: financialContext,
+        history: recentHistory,
+      });
 
       setChatMessages((prev) => [
         ...prev,
@@ -296,7 +303,7 @@ ${userText}
                 {
                   id: "welcome",
                   role: "coach",
-                  text: `Oi! Eu sou o Coach Pibble 🐶\n\nSeu score atual é **${analysis.healthScore}/100**.\n\nPosso te ajudar com crédito, saldo disponível, gastos ou próximos passos.`,
+                  text: `Oi! Eu sou o Coach Pibble 🐶\n\nSeu score atual é **${analysis.healthScore}/100**.\n\nPosso te ajudar com crédito, saldo, gastos ou o próximo passo.`,
                 },
               ]);
             }
