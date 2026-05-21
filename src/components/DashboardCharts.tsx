@@ -14,6 +14,7 @@ import {
 import { Wallet, Transaction } from "../types";
 import { PRESET_CATEGORIES } from "../utils/constants";
 import { formatMoney } from "../utils/formatMoney";
+import { useTheme } from "../context/ThemeProvider";
 import {
   PieChart as PieIcon,
   BarChart3,
@@ -86,9 +87,20 @@ export default function DashboardCharts({
   wallets = [],
   currency,
 }: DashboardChartsProps) {
+  const { resolvedTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<"overview" | "categories">(
     "overview"
   );
+  const isLight = resolvedTheme === "light";
+  const chartAxisColor = isLight ? "#64748b" : "#94a3b8";
+  const chartGridColor = isLight
+    ? "rgba(100, 116, 139, 0.18)"
+    : "rgba(148,163,184,0.18)";
+  const chartTooltipSurface = isLight ? "#ffffff" : "#0f172a";
+  const chartTooltipText = isLight ? "#0f172a" : "#ffffff";
+  const cardToneClass = isLight
+    ? "border-slate-200/80 bg-white/88 shadow-[0_16px_42px_rgba(15,23,42,0.08)]"
+    : "border-white/10 bg-white/5";
 
   const walletById = useMemo(() => {
     return wallets.reduce<Record<string, Wallet>>((acc, wallet) => {
@@ -303,7 +315,7 @@ export default function DashboardCharts({
       </div>
 
       <div className="mb-5 grid gap-3 lg:grid-cols-3">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <div className={`rounded-2xl p-4 ${cardToneClass}`}>
           <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
             Resumo rápido
           </span>
@@ -315,7 +327,7 @@ export default function DashboardCharts({
           </p>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <div className={`rounded-2xl p-4 ${cardToneClass}`}>
           <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
             Entradas
           </span>
@@ -324,7 +336,7 @@ export default function DashboardCharts({
           </p>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <div className={`rounded-2xl p-4 ${cardToneClass}`}>
           <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
             Gastos
           </span>
@@ -361,10 +373,7 @@ export default function DashboardCharts({
             CreditCard,
           ],
         ].map(([label, value, color, Icon]: any) => (
-          <div
-            key={label}
-            className="rounded-2xl border border-white/10 bg-white/5 p-4"
-          >
+          <div key={label} className={`rounded-2xl p-4 ${cardToneClass}`}>
             <div
               className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.24em]"
               style={{ color }}
@@ -382,7 +391,7 @@ export default function DashboardCharts({
 
       <div className="min-h-[380px] w-full overflow-hidden">
         {activeTab === "overview" ? (
-          <div className="h-[360px] w-full rounded-[24px] border border-white/10 bg-white/5 p-4">
+          <div className={`h-[360px] w-full rounded-[24px] p-4 ${cardToneClass}`}>
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-sm font-black text-white">
@@ -413,20 +422,20 @@ export default function DashboardCharts({
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
-                  stroke="rgba(148,163,184,0.18)"
+                  stroke={chartGridColor}
                 />
 
                 <XAxis
                   dataKey="date"
                   fontSize={10}
-                  stroke="#94a3b8"
+                  stroke={chartAxisColor}
                   axisLine={false}
                   tickLine={false}
                 />
 
                 <YAxis
                   fontSize={10}
-                  stroke="#94a3b8"
+                  stroke={chartAxisColor}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(value: number) =>
@@ -439,15 +448,18 @@ export default function DashboardCharts({
                     formatMoney(value, currency),
                     name === "entradas" ? "Entradas" : "Gastos",
                   ]}
-                  labelStyle={{ color: "#fff" }}
-                  contentStyle={{
-                    background: "#0f172a",
-                    border: "none",
-                    borderRadius: "14px",
-                    color: "#fff",
-                    fontSize: "12px",
-                  }}
-                />
+                    labelStyle={{ color: chartTooltipText }}
+                    contentStyle={{
+                      background: chartTooltipSurface,
+                      border: `1px solid ${isLight ? "rgba(15,23,42,0.08)" : "transparent"}`,
+                      borderRadius: "14px",
+                      color: chartTooltipText,
+                      fontSize: "12px",
+                      boxShadow: isLight
+                        ? "0 16px 34px rgba(15,23,42,0.12)"
+                        : "none",
+                    }}
+                  />
 
                 <Line
                   type="monotone"
@@ -496,11 +508,14 @@ export default function DashboardCharts({
                       name,
                     ]}
                     contentStyle={{
-                      background: "#0f172a",
-                      border: "none",
+                      background: chartTooltipSurface,
+                      border: `1px solid ${isLight ? "rgba(15,23,42,0.08)" : "transparent"}`,
                       borderRadius: "14px",
-                      color: "#fff",
+                      color: chartTooltipText,
                       fontSize: "12px",
+                      boxShadow: isLight
+                        ? "0 16px 34px rgba(15,23,42,0.12)"
+                        : "none",
                     }}
                   />
                 </PieChart>
@@ -525,7 +540,7 @@ export default function DashboardCharts({
                 return (
                   <div
                     key={item.name}
-                    className="rounded-2xl border border-white/10 bg-white/5 p-3 transition hover:bg-white/8 hover:shadow-xs"
+                    className={`rounded-2xl p-3 transition hover:shadow-xs ${cardToneClass}`}
                   >
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-2">

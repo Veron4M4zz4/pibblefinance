@@ -115,6 +115,11 @@
     color: #e2e8f0;
   }
 
+  :root[data-theme="light"] option {
+    background-color: #ffffff;
+    color: #0f172a;
+  }
+
   ::selection {
     background: rgba(99, 102, 241, 0.35);
     color: #ffffff;
@@ -274,6 +279,23 @@
 
 [data-theme="light"] .release-shell .text-slate-700 {
   color: #334155;
+}
+
+[data-theme="light"] .release-shell :is(.bg-slate-950, .bg-slate-950\/70, .bg-slate-900, .bg-slate-900\/70, .bg-slate-800, .bg-slate-800\/70) {
+  background-color: rgba(255, 255, 255, 0.92);
+}
+
+[data-theme="light"] .release-shell :is(.bg-slate-950, .bg-slate-950\/70, .bg-slate-900, .bg-slate-900\/70, .bg-slate-800, .bg-slate-800\/70).text-white,
+[data-theme="light"] .release-shell :is(.bg-slate-950, .bg-slate-950\/70, .bg-slate-900, .bg-slate-900\/70, .bg-slate-800, .bg-slate-800\/70).text-slate-100 {
+  color: var(--app-text-strong);
+}
+
+[data-theme="light"] .release-shell :is(.bg-white\/5, .bg-white\/6, .bg-white\/8, .bg-white\/10) {
+  background-color: rgba(255, 255, 255, 0.82);
+}
+
+[data-theme="light"] .release-shell :is(.border-white\/10, .border-white\/20, .border-white\/30) {
+  border-color: rgba(15, 23, 42, 0.08);
 }
 
 .release-shell :is(button, a, select, [role="button"]) {
