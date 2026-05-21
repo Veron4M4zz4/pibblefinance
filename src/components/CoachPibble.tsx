@@ -9,11 +9,13 @@ import {
   MessageCircle,
   Send,
   ShieldAlert,
+  Sparkles,
   X,
 } from "lucide-react";
 
-import { formatMoney } from "../utils/formatMoney";
 import { askCoachPibble } from "../services/coachAI";
+import { buildFinancialSnapshot } from "../utils/financialSnapshot";
+import { formatMoney } from "../utils/formatMoney";
 
 interface WalletType {
   id: string;
@@ -40,114 +42,29 @@ interface Props {
 
 interface MessageItem {
   id: string;
-  role: "coach" | "user";
+  role: "assistant" | "user";
   text: string;
 }
 
-const cleanType = (type?: string) => String(type || "").toLowerCase();
-const getTxWalletId = (tx: TransactionType) => tx.walletId || tx.wallet_id || "";
+const QUICK_PROMPTS = [
+  "Como está meu crédito?",
+  "Tenho saldo suficiente?",
+  "Explique meu score",
+  "O que devo priorizar agora?",
+];
 
-function calculateFinancialHealth(
-  wallets: WalletType[],
-  transactions: TransactionType[],
-  currency: Props["currency"]
-) {
-  const walletById = wallets.reduce<Record<string, WalletType>>(
-    (acc, wallet) => {
-      acc[wallet.id] = wallet;
-      return acc;
-    },
-    {}
-  );
-
-  let totalCredit = 0;
-  let totalDebit = 0;
-
-  wallets.forEach((wallet) => {
-    const value = Number(wallet.balance || 0);
-
-    if (cleanType(wallet.type) === "credit") {
-      totalCredit += value;
-    } else {
-      totalDebit += value;
-    }
-  });
-
-  let totalIncome = 0;
-  let creditExpenses = 0;
-  let debitExpenses = 0;
-
-  transactions.forEach((transaction) => {
-    const amount = Number(transaction.amount || 0);
-
-    if (transaction.type === "income") {
-      totalIncome += amount;
-      return;
-    }
-
-    if (transaction.type === "expense") {
-      const wallet = walletById[getTxWalletId(transaction)];
-
-      if (cleanType(wallet?.type) === "credit") {
-        creditExpenses += amount;
-      } else {
-        debitExpenses += amount;
-      }
-    }
-  });
-
-  const totalExpenses = creditExpenses + debitExpenses;
-
-  let healthScore = 100;
-
-  if (totalIncome === 0 && totalExpenses > 0) healthScore -= 20;
-  if (creditExpenses > totalDebit && creditExpenses > 0) healthScore -= 30;
-  if (creditExpenses > debitExpenses && creditExpenses > 0) healthScore -= 15;
-  if (totalDebit < 100) healthScore -= 20;
-  if (totalIncome > 0 && totalExpenses > totalIncome) healthScore -= 25;
-
-  let mainInsight = {
-    type: "success" as "success" | "warning" | "danger",
-    title: "Sua estrutura financeira parece saudável",
-    text: "Não encontrei sinais críticos no momento.",
-  };
-
-  if (totalIncome === 0 && totalExpenses > 0) {
-    mainInsight = {
-      type: "danger",
-      title: "Você está gastando sem registrar renda",
-      text: "Cadastre entradas para medir corretamente sua saúde financeira.",
-    };
-  } else if (creditExpenses > totalDebit && creditExpenses > 0) {
-    mainInsight = {
-      type: "danger",
-      title: "O crédito passou do saldo disponível",
-      text: `Você gastou ${formatMoney(
-        creditExpenses,
-        currency
-      )} no crédito e possui ${formatMoney(
-        totalDebit,
-        currency
-      )} em saldo disponível.`,
-    };
-  } else if (creditExpenses > debitExpenses && creditExpenses > 0) {
-    mainInsight = {
-      type: "warning",
-      title: "Gastos concentrados no crédito",
-      text: "Grande parte das saídas está sendo feita no cartão.",
-    };
-  }
-
+function getTransactionAsFinancialItem(transaction: TransactionType) {
   return {
-    totalCredit,
-    totalDebit,
-    totalIncome,
-    totalExpenses,
-    creditExpenses,
-    debitExpenses,
-    healthScore: Math.max(0, healthScore),
-    mainInsight,
+    ...transaction,
+    walletId: transaction.walletId || transaction.wallet_id || "",
   };
+}
+
+function getInsightToneClass(tone: "success" | "warning" | "danger") {
+  if (tone === "danger") return "border-rose-500/20 bg-rose-500/10 text-rose-100";
+  if (tone === "warning")
+    return "border-amber-500/20 bg-amber-500/10 text-amber-100";
+  return "border-emerald-500/20 bg-emerald-500/10 text-emerald-100";
 }
 
 export default function CoachPibble({
@@ -161,9 +78,14 @@ export default function CoachPibble({
   const [chatMessages, setChatMessages] = useState<MessageItem[]>([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  const normalizedTransactions = useMemo(
+    () => transactions.map(getTransactionAsFinancialItem) as any,
+    [transactions]
+  );
+
   const analysis = useMemo(
-    () => calculateFinancialHealth(wallets, transactions, currency),
-    [wallets, transactions, currency]
+    () => buildFinancialSnapshot(wallets as any, normalizedTransactions),
+    [wallets, normalizedTransactions]
   );
 
   useEffect(() => {
@@ -191,9 +113,9 @@ export default function CoachPibble({
     setIsLoading(true);
 
     const financialContext = {
-      balance: analysis.totalDebit,
-      creditRemaining: analysis.totalCredit,
-      income: analysis.totalIncome,
+      balance: analysis.cashBalance,
+      creditRemaining: analysis.creditRemaining,
+      income: analysis.income,
       totalExpenses: analysis.totalExpenses,
       creditExpenses: analysis.creditExpenses,
       debitExpenses: analysis.debitExpenses,
@@ -202,7 +124,7 @@ export default function CoachPibble({
     } as const;
 
     const recentHistory = chatMessages.slice(-8).map((item) => ({
-      role: item.role === "coach" ? ("assistant" as const) : ("user" as const),
+      role: item.role,
       text: item.text,
     }));
 
@@ -217,7 +139,7 @@ export default function CoachPibble({
         ...prev,
         {
           id: `coach-${Date.now()}`,
-          role: "coach",
+          role: "assistant",
           text: coachText,
         },
       ]);
@@ -228,7 +150,7 @@ export default function CoachPibble({
         ...prev,
         {
           id: `coach-error-${Date.now()}`,
-          role: "coach",
+          role: "assistant",
           text: "Não consegui responder agora. Tente novamente em instantes.",
         },
       ]);
@@ -238,57 +160,86 @@ export default function CoachPibble({
   }
 
   const InsightIcon =
-    analysis.mainInsight.type === "danger"
+    analysis.mainInsight.tone === "danger"
       ? ShieldAlert
-      : analysis.mainInsight.type === "warning"
+      : analysis.mainInsight.tone === "warning"
       ? AlertTriangle
       : CheckCircle2;
 
   return (
     <>
-      <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-xs">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-indigo-600">
+      <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/75 p-6 text-white shadow-[0_24px_80px_rgba(2,6,23,0.45)] backdrop-blur-xl">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(99,102,241,0.18),_transparent_34%),radial-gradient(circle_at_bottom_left,_rgba(16,185,129,0.12),_transparent_30%)]" />
+
+        <div className="relative mb-5 flex items-start justify-between gap-4">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-indigo-200">
               <Brain size={13} />
               Coach Pibble IA
             </div>
 
-            <h3 className="text-2xl font-black text-slate-900">
-              Dores & Cuidados
-            </h3>
-
-            <p className="mt-1 text-sm leading-5 text-slate-500">
-              Diagnóstico financeiro inteligente.
-            </p>
+            <div>
+              <h3 className="text-2xl font-black tracking-tight text-white">
+                Leitura financeira instantânea
+              </h3>
+              <p className="mt-1 max-w-sm text-sm leading-6 text-slate-400">
+                Um resumo curto do seu cenário, com contexto e orientação prática.
+              </p>
+            </div>
           </div>
 
-          <div className="flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-500 to-violet-700 text-white shadow-lg">
-            <span className="text-2xl font-black">{analysis.healthScore}</span>
-            <span className="text-[10px] font-bold uppercase text-white/70">
+          <div className="flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-[24px] border border-white/10 bg-white/8 shadow-lg backdrop-blur-md">
+            <span className="text-2xl font-black text-white">
+              {analysis.healthScore}
+            </span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-400">
               score
             </span>
           </div>
         </div>
 
+        <div className="relative grid gap-3 sm:grid-cols-3">
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+            <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400">
+              Saldo disponível
+            </span>
+            <strong className="mt-2 block text-lg font-black text-white">
+              {formatMoney(analysis.cashBalance, currency)}
+            </strong>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+            <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400">
+              Crédito restante
+            </span>
+            <strong className="mt-2 block text-lg font-black text-white">
+              {formatMoney(analysis.creditRemaining, currency)}
+            </strong>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+            <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400">
+              Fluxo líquido
+            </span>
+            <strong className="mt-2 block text-lg font-black text-white">
+              {formatMoney(analysis.netCashFlow, currency)}
+            </strong>
+          </div>
+        </div>
+
         <div
-          className={`rounded-2xl border p-4 ${
-            analysis.mainInsight.type === "danger"
-              ? "border-rose-200 bg-rose-50"
-              : analysis.mainInsight.type === "warning"
-              ? "border-amber-200 bg-amber-50"
-              : "border-emerald-200 bg-emerald-50"
-          }`}
+          className={`relative mt-4 rounded-3xl border p-4 ${getInsightToneClass(
+            analysis.mainInsight.tone
+          )}`}
         >
           <div className="mb-2 flex items-center gap-2">
-            <InsightIcon size={18} className="text-slate-700" />
-
-            <strong className="text-sm font-black text-slate-900">
+            <InsightIcon size={18} />
+            <strong className="text-sm font-black text-white">
               {analysis.mainInsight.title}
             </strong>
           </div>
 
-          <p className="text-xs leading-5 text-slate-600">
+          <p className="text-xs leading-6 text-white/80">
             {analysis.mainInsight.text}
           </p>
         </div>
@@ -302,71 +253,47 @@ export default function CoachPibble({
               setChatMessages([
                 {
                   id: "welcome",
-                  role: "coach",
-                  text: `Oi! Eu sou o Coach Pibble 🐶\n\nSeu score atual é **${analysis.healthScore}/100**.\n\nPosso te ajudar com crédito, saldo, gastos ou o próximo passo.`,
+                  role: "assistant",
+                  text: `Oi! Eu sou o Coach Pibble.\n\nSeu score atual é **${analysis.healthScore}/100** e eu posso te ajudar a interpretar crédito, saldo, gastos ou entradas.`,
                 },
               ]);
             }
           }}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+          className="relative mt-5 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-slate-100"
         >
           <MessageCircle size={16} />
-          Conversar com Coach Pibble
+          Conversar com o Coach
         </button>
       </div>
 
       {isChatOpen && (
         <motion.div
-          initial={{
-            opacity: 0,
-            backdropFilter: "blur(0px)",
-          }}
-          animate={{
-            opacity: 1,
-            backdropFilter: "blur(12px)",
-          }}
-          transition={{
-            duration: 0.22,
-            ease: "easeOut",
-          }}
-          className="fixed inset-0 z-[9999] h-screen w-screen overflow-hidden bg-slate-950/40 backdrop-blur-md"
+          initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
+          animate={{ opacity: 1, backdropFilter: "blur(12px)" }}
+          transition={{ duration: 0.22, ease: "easeOut" }}
+          className="fixed inset-0 z-[9999] h-screen w-screen overflow-hidden bg-slate-950/60 backdrop-blur-md"
         >
-          <div className="absolute inset-0" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.16),_transparent_32%)]" />
 
           <div className="absolute bottom-0 right-0 flex items-end justify-end p-0 md:p-4">
             <motion.div
-              initial={{
-                y: 48,
-                opacity: 0,
-                scale: 0.97,
-              }}
-              animate={{
-                y: 0,
-                opacity: 1,
-                scale: 1,
-              }}
-              transition={{
-                type: "spring",
-                damping: 24,
-                stiffness: 260,
-              }}
-              className="flex h-[700px] w-screen max-w-md flex-col overflow-hidden rounded-t-3xl border border-white/20 bg-white shadow-2xl md:mb-4 md:mr-4 md:w-full md:rounded-3xl"
+              initial={{ y: 48, opacity: 0, scale: 0.97 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              transition={{ type: "spring", damping: 24, stiffness: 260 }}
+              className="flex h-[720px] w-screen max-w-[420px] flex-col overflow-hidden rounded-t-[28px] border border-white/10 bg-slate-950 shadow-[0_30px_100px_rgba(2,6,23,0.45)] md:mb-4 md:mr-4 md:w-full md:rounded-[28px]"
             >
-              <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-5 py-4 text-white">
+              <div className="flex items-center justify-between border-b border-white/10 bg-slate-950/95 px-5 py-4 text-white">
                 <div className="flex items-center gap-3">
-                  <img
-                    src="/logo-pibble.png"
-                    alt="Coach Pibble"
-                    className="h-10 w-10 rounded-2xl object-cover shadow-md"
-                  />
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/6">
+                    <Sparkles size={18} className="text-indigo-300" />
+                  </div>
 
                   <div>
                     <strong className="block text-sm font-black tracking-wide">
                       Coach Pibble
                     </strong>
-
                     <span className="text-xs text-slate-400">
-                      Conselheiro financeiro inteligente
+                      Leitura financeira contextual
                     </span>
                   </div>
                 </div>
@@ -380,58 +307,30 @@ export default function CoachPibble({
                 </button>
               </div>
 
-              <div className="flex-1 space-y-4 overflow-y-auto bg-slate-50 p-5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200 hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
+              <div className="flex-1 space-y-4 overflow-y-auto bg-slate-950 px-5 py-5 text-white [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700 hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
                 {chatMessages.map((item) => (
                   <motion.div
                     key={item.id}
-                    initial={{
-                      opacity: 0,
-                      y: 10,
-                      scale: 0.98,
-                    }}
-                    animate={{
-                      opacity: 1,
-                      y: 0,
-                      scale: 1,
-                    }}
-                    transition={{
-                      duration: 0.18,
-                      ease: "easeOut",
-                    }}
+                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.18, ease: "easeOut" }}
                     className={`flex ${
                       item.role === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
                     <div
-                      className={`max-w-[85%] overflow-hidden rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words shadow-xs ${
+                      className={`max-w-[88%] overflow-hidden rounded-3xl px-4 py-3 text-sm leading-relaxed break-words shadow-lg ${
                         item.role === "user"
-                          ? "rounded-br-xs bg-indigo-600 font-medium text-white"
-                          : "rounded-bl-xs border border-slate-100 bg-white text-slate-700"
+                          ? "rounded-br-sm border border-indigo-400/20 bg-indigo-500 text-white"
+                          : "rounded-bl-sm border border-white/10 bg-white/6 text-slate-100"
                       }`}
                     >
                       {item.role === "user" ? (
-                        <span className="whitespace-pre-wrap">
-                          {item.text}
-                        </span>
+                        <span className="whitespace-pre-wrap">{item.text}</span>
                       ) : (
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{
-                            h1: ({ children }) => (
-                              <p className="mb-1.5 text-sm font-black text-slate-900">
-                                {children}
-                              </p>
-                            ),
-                            h2: ({ children }) => (
-                              <p className="mb-1.5 text-sm font-black text-slate-900">
-                                {children}
-                              </p>
-                            ),
-                            h3: ({ children }) => (
-                              <p className="mb-1.5 text-sm font-black text-slate-900">
-                                {children}
-                              </p>
-                            ),
                             p: ({ children }) => (
                               <p className="mb-1.5 last:mb-0">{children}</p>
                             ),
@@ -445,11 +344,9 @@ export default function CoachPibble({
                                 {children}
                               </ol>
                             ),
-                            li: ({ children }) => (
-                              <li className="pl-0.5">{children}</li>
-                            ),
+                            li: ({ children }) => <li className="pl-0.5">{children}</li>,
                             strong: ({ children }) => (
-                              <strong className="font-extrabold text-slate-900">
+                              <strong className="font-extrabold text-white">
                                 {children}
                               </strong>
                             ),
@@ -464,21 +361,13 @@ export default function CoachPibble({
 
                 {isLoading && (
                   <motion.div
-                    initial={{
-                      opacity: 0,
-                      y: 10,
-                    }}
-                    animate={{
-                      opacity: 1,
-                      y: 0,
-                    }}
-                    transition={{
-                      duration: 0.18,
-                    }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.18 }}
                     className="flex justify-start"
                   >
-                    <div className="rounded-2xl rounded-bl-xs border border-slate-100 bg-white px-4 py-2.5 text-sm text-slate-400 shadow-xs animate-pulse">
-                      Pibble está pensando 🐾
+                    <div className="rounded-3xl rounded-bl-sm border border-white/10 bg-white/6 px-4 py-3 text-sm text-slate-300 shadow-lg">
+                      Pibble está pensando...
                     </div>
                   </motion.div>
                 )}
@@ -486,20 +375,15 @@ export default function CoachPibble({
                 <div ref={messagesEndRef} />
               </div>
 
-              <div className="border-t border-slate-100 bg-white p-4">
-                <div className="mb-3.5 flex flex-wrap gap-2">
-                  {[
-                    "Como está meu crédito?",
-                    "Tenho saldo suficiente?",
-                    "O que devo fazer agora?",
-                    "Explique meu score",
-                  ].map((suggestion) => (
+              <div className="border-t border-white/10 bg-slate-950 px-4 py-4">
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {QUICK_PROMPTS.map((suggestion) => (
                     <button
                       key={suggestion}
                       type="button"
                       onClick={() => handleSendMessage(suggestion)}
                       disabled={isLoading}
-                      className="rounded-full border border-slate-200/60 bg-slate-50 px-3 py-1.5 text-[11px] font-bold text-slate-600 transition hover:border-indigo-100 hover:bg-indigo-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-[11px] font-semibold text-slate-200 transition hover:border-indigo-400/30 hover:bg-indigo-500/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {suggestion}
                     </button>
@@ -516,17 +400,17 @@ export default function CoachPibble({
                     disabled={isLoading}
                     placeholder={
                       isLoading
-                        ? "Aguardando o Pibble..."
+                        ? "Aguardando o Coach..."
                         : "Pergunte ao Coach Pibble..."
                     }
-                    className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-4 pr-3 text-sm outline-none transition focus:border-indigo-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex-1 rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-indigo-400/40 focus:bg-white/8 disabled:cursor-not-allowed disabled:opacity-60"
                   />
 
                   <button
                     type="button"
                     onClick={() => handleSendMessage()}
                     disabled={!message.trim() || isLoading}
-                    className="flex aspect-square items-center justify-center rounded-2xl bg-indigo-600 px-4 text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex aspect-square items-center justify-center rounded-2xl bg-indigo-500 px-4 text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Send size={16} />
                   </button>

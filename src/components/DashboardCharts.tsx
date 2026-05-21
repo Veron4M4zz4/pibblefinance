@@ -29,11 +29,11 @@ interface DashboardChartsProps {
 }
 
 const COLORS = {
-  realBalance: "#4f46e5",
-  creditAvailable: "#8b5cf6",
-  realExpense: "#f97316",
-  creditExpense: "#e11d48",
-  income: "#10b981",
+  realBalance: "#6366f1",
+  creditAvailable: "#a78bfa",
+  realExpense: "#fb923c",
+  creditExpense: "#f43f5e",
+  income: "#34d399",
 };
 
 const CATEGORY_COLORS = [
@@ -194,7 +194,6 @@ export default function DashboardCharts({
         }
 
         totals[catName].value += amount;
-
         if (isCredit) totals[catName].creditValue += amount;
         else totals[catName].realValue += amount;
       });
@@ -210,36 +209,40 @@ export default function DashboardCharts({
   const hasExpenses = financialOverview.totalExpense > 0;
 
   return (
-    <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-xs transition-all duration-300">
+    <div className="card-premium rounded-[28px] p-6">
       <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h3 className="font-display text-lg font-bold text-slate-900">
-            Análise Financeira
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">
+            <BarChart3 size={12} />
+            Análise financeira
+          </div>
+          <h3 className="font-display text-lg font-bold text-white">
+            Fluxo e gastos
           </h3>
-          <p className="text-xs text-slate-500">
-            Entenda seu dinheiro real separado do limite de crédito.
+          <p className="mt-1 text-sm leading-6 text-slate-400">
+            Veja suas entradas, saídas e o peso do crédito em um resumo visual.
           </p>
         </div>
 
-        <div className="flex rounded-xl bg-slate-100 p-1">
+        <div className="flex rounded-2xl border border-white/10 bg-white/6 p-1">
           <button
             onClick={() => setActiveTab("overview")}
-            className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
               activeTab === "overview"
-                ? "bg-white text-indigo-600 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-white text-slate-950 shadow-xs"
+                : "text-slate-400 hover:text-white"
             }`}
           >
             <BarChart3 size={14} />
-            Visão Geral
+            Visão geral
           </button>
 
           <button
             onClick={() => setActiveTab("categories")}
-            className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
               activeTab === "categories"
-                ? "bg-white text-indigo-600 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-white text-slate-950 shadow-xs"
+                : "text-slate-400 hover:text-white"
             }`}
           >
             <PieIcon size={14} />
@@ -257,17 +260,17 @@ export default function DashboardCharts({
         ].map(([label, value, color, Icon]: any) => (
           <div
             key={label}
-            className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"
+            className="rounded-2xl border border-white/10 bg-white/5 p-4"
           >
             <div
-              className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
+              className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.24em]"
               style={{ color }}
             >
               <Icon size={14} />
               {label}
             </div>
 
-            <strong className="block text-xl font-black text-slate-950">
+            <strong className="block text-xl font-black tracking-tight text-white">
               {formatMoney(value, currency)}
             </strong>
           </div>
@@ -276,18 +279,18 @@ export default function DashboardCharts({
 
       <div className="min-h-[380px] w-full overflow-hidden">
         {activeTab === "overview" ? (
-          <div className="h-[360px] w-full rounded-3xl border border-slate-100 bg-slate-50/60 p-4">
+          <div className="h-[360px] w-full rounded-[24px] border border-white/10 bg-white/5 p-4">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-black text-slate-900">
+                <p className="text-sm font-black text-white">
                   Fluxo dos últimos 14 dias
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="mt-1 text-xs text-slate-400">
                   Entradas versus gastos no período.
                 </p>
               </div>
 
-              <div className="flex gap-3 text-[11px] font-bold text-slate-500">
+              <div className="flex gap-3 text-[11px] font-bold text-slate-400">
                 <span className="flex items-center gap-1">
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
                   Entradas
@@ -307,7 +310,7 @@ export default function DashboardCharts({
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
-                  stroke="#e2e8f0"
+                  stroke="rgba(148,163,184,0.18)"
                 />
 
                 <XAxis
@@ -401,10 +404,10 @@ export default function DashboardCharts({
               </ResponsiveContainer>
 
               <div className="pointer-events-none absolute flex flex-col items-center justify-center text-center">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                <span className="text-xs font-bold uppercase tracking-[0.24em] text-slate-400">
                   Total gasto
                 </span>
-                <span className="mt-1 font-mono text-base font-black text-slate-900">
+                <span className="mt-1 font-mono text-base font-black text-white">
                   {formatMoney(financialOverview.totalExpense, currency)}
                 </span>
               </div>
@@ -419,7 +422,7 @@ export default function DashboardCharts({
                 return (
                   <div
                     key={item.name}
-                    className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3 transition hover:bg-white hover:shadow-xs"
+                    className="rounded-2xl border border-white/10 bg-white/5 p-3 transition hover:bg-white/8 hover:shadow-xs"
                   >
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-2">
@@ -428,17 +431,17 @@ export default function DashboardCharts({
                           style={{ backgroundColor: item.color }}
                         />
 
-                        <strong className="truncate text-xs font-bold text-slate-800">
+                        <strong className="truncate text-xs font-bold text-slate-100">
                           {item.name}
                         </strong>
                       </div>
 
-                      <span className="shrink-0 font-mono text-xs font-bold text-slate-900">
+                      <span className="shrink-0 font-mono text-xs font-bold text-white">
                         {formatMoney(item.value, currency)}
                       </span>
                     </div>
 
-                    <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-slate-200/70">
+                    <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-white/10">
                       <div
                         className="h-full rounded-full"
                         style={{
@@ -448,7 +451,7 @@ export default function DashboardCharts({
                       />
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 text-[10px] text-slate-500">
+                    <div className="flex items-center justify-between gap-2 text-[10px] text-slate-400">
                       <span>{percentage}% dos gastos</span>
                       <span className="truncate text-right">
                         Saldo: {formatMoney(item.realValue, currency)} · Crédito:{" "}
@@ -461,9 +464,9 @@ export default function DashboardCharts({
             </div>
           </div>
         ) : (
-          <div className="flex h-[340px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-100 bg-slate-50/50 text-slate-400">
-            <TrendingUp size={36} className="mb-2 text-indigo-400/50" />
-            <p className="text-sm font-semibold text-slate-600">
+          <div className="flex h-[340px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/10 bg-white/5 text-slate-400">
+            <TrendingUp size={36} className="mb-2 text-indigo-300/60" />
+            <p className="text-sm font-semibold text-slate-200">
               Sem gastos cadastrados
             </p>
             <p className="mt-1 px-4 text-center text-xs text-slate-500">

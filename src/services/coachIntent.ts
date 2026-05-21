@@ -9,14 +9,18 @@ export type CoachIntent =
 export interface CoachIntentMatch {
   intent: CoachIntent;
   matchedIntents: string[];
+  confidence: number;
+  keywords: string[];
 }
 
 const INTENT_RULES: Array<{
   intent: CoachIntent;
   terms: RegExp[];
+  keywords: string[];
 }> = [
   {
     intent: "score",
+    keywords: ["score", "pontuação", "nota", "saúde financeira"],
     terms: [
       /\bscore\b/i,
       /\bpontuacao\b/i,
@@ -26,6 +30,7 @@ const INTENT_RULES: Array<{
   },
   {
     intent: "credit",
+    keywords: ["crédito", "cartão", "fatura", "limite", "parcelas"],
     terms: [
       /\bcredito\b/i,
       /\bcartao\b/i,
@@ -36,6 +41,7 @@ const INTENT_RULES: Array<{
   },
   {
     intent: "balance",
+    keywords: ["saldo", "caixa", "disponível", "reserva"],
     terms: [
       /\bsaldo\b/i,
       /\bcaixa\b/i,
@@ -47,6 +53,7 @@ const INTENT_RULES: Array<{
   },
   {
     intent: "income",
+    keywords: ["entrada", "receita", "salário", "ganho"],
     terms: [
       /\bentrada(?:s)?\b/i,
       /\breceita(?:s)?\b/i,
@@ -57,6 +64,7 @@ const INTENT_RULES: Array<{
   },
   {
     intent: "expenses",
+    keywords: ["gasto", "despesa", "custo", "saída", "economia"],
     terms: [
       /\bgasto(?:s)?\b/i,
       /\bdespesa(?:s)?\b/i,
@@ -79,18 +87,27 @@ export function normalizeCoachText(value: string) {
 
 export function detectCoachIntent(question: string): CoachIntentMatch {
   const normalized = normalizeCoachText(question);
-  const matchedIntents: string[] = [];
+  const scoredMatches = INTENT_RULES.map((rule) => {
+    const termMatches = rule.terms.filter((term) => term.test(normalized));
 
-  for (const rule of INTENT_RULES) {
-    const terms = rule.terms.filter((term) => term.test(normalized));
+    return {
+      intent: rule.intent,
+      matched: termMatches.length,
+      keywords: rule.keywords,
+    };
+  }).filter((item) => item.matched > 0);
 
-    if (terms.length > 0) {
-      matchedIntents.push(rule.intent);
-    }
-  }
+  const matchedIntents = scoredMatches.map((item) => item.intent);
+  const bestMatch = scoredMatches.sort((a, b) => b.matched - a.matched)[0];
 
   return {
-    intent: matchedIntents[0] || "general",
+    intent: bestMatch?.intent || "general",
     matchedIntents,
+    confidence: bestMatch ? Math.min(1, bestMatch.matched / 3) : 0,
+    keywords: bestMatch?.keywords || [],
   };
+}
+
+export function getQuestionOnlyText(rawValue: string) {
+  return rawValue.trim().replace(/\s+/g, " ");
 }

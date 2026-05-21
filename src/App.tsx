@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useCallback, useState, useEffect, useMemo } from "react";
 import type { Session } from "@supabase/supabase-js";
 
 import { Wallet, Transaction, UserProfile } from "./types";
@@ -18,6 +18,7 @@ import {
 
 import { AVATAR_COLORS } from "./utils/constants";
 import { formatMoney } from "./utils/formatMoney";
+import { buildFinancialSnapshot } from "./utils/financialSnapshot";
 
 import DashboardCharts from "./components/DashboardCharts";
 import WalletForm from "./components/WalletForm";
@@ -30,9 +31,11 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Edit3,
+  Clock3,
   LogOut,
   PiggyBank,
   Sparkles,
+  RefreshCw,
   Wallet as WalletIcon,
 } from "lucide-react";
 
@@ -52,6 +55,31 @@ function safeStorageRemove(key: string) {
   } catch (error) {
     console.error(`Erro ao remover ${key}:`, error);
   }
+}
+
+function getRelativeTimeLabel(isoDate?: string | null) {
+  if (!isoDate) return "nunca";
+
+  const timestamp = new Date(isoDate).getTime();
+
+  if (Number.isNaN(timestamp)) return "agora";
+
+  const diffMinutes = Math.max(
+    0,
+    Math.round((Date.now() - timestamp) / 60000)
+  );
+
+  if (diffMinutes < 1) return "agora";
+  if (diffMinutes === 1) return "há 1 min";
+  if (diffMinutes < 60) return `há ${diffMinutes} min`;
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours === 1) return "há 1 h";
+  if (diffHours < 24) return `há ${diffHours} h`;
+
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays === 1) return "há 1 dia";
+  return `há ${diffDays} dias`;
 }
 
 export default function App() {
@@ -88,6 +116,13 @@ export default function App() {
   const [walletSort, setWalletSort] = useState<
     "recent" | "name" | "balance" | "type"
   >("recent");
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  type WalletOverviewItem = Wallet & {
+    createdAt: string;
+    updatedAt: string;
+    index: number;
+  };
 
   function syncUserFromSession(session: Session | null) {
     setSession(session);
@@ -187,12 +222,59 @@ export default function App() {
     }
   }
 
+  const refreshWorkspace = useCallback(async () => {
+    if (!session?.user && !currentUser) return;
+
+    setIsRefreshing(true);
+
+    try {
+      await Promise.all([loadWallets(), loadTransactions()]);
+      setLastSyncAt(new Date().toISOString());
+    } catch (error) {
+      console.error("Erro ao atualizar a tela:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [session?.user?.id, currentUser]);
+
   useEffect(() => {
     if (!session?.user && !currentUser) return;
 
-    loadWallets();
-    loadTransactions();
-  }, [session?.user?.id, currentUser]);
+    let cancelled = false;
+
+    const syncNow = async () => {
+      if (cancelled) return;
+      await refreshWorkspace();
+    };
+
+    syncNow();
+
+    const intervalId = window.setInterval(() => {
+      if (!document.hidden) {
+        syncNow();
+      }
+    }, 45000);
+
+    const handleFocus = () => {
+      syncNow();
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        syncNow();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [session?.user?.id, currentUser, refreshWorkspace]);
 
   useEffect(() => {
     setStorageItem("pibblefinance:profile", profile);
@@ -210,72 +292,36 @@ export default function App() {
     };
   }, [editingWallet, walletToDelete]);
 
-  const totals = useMemo(() => {
-    const getWalletType = (type?: string) => String(type || "").toLowerCase();
-
-    const isCreditWallet = (wallet: Wallet) =>
-      getWalletType(wallet.type) === "credit";
-
-    const walletById = wallets.reduce<Record<string, Wallet>>((acc, wallet) => {
-      acc[wallet.id] = wallet;
-      return acc;
-    }, {});
-
-    const getTransactionWalletId = (transaction: any) =>
-      transaction.walletId || transaction.wallet_id || "";
-
-    const realBalance = wallets
-      .filter((wallet) => !isCreditWallet(wallet))
-      .reduce((acc, wallet) => acc + Number(wallet.balance || 0), 0);
-
-    const creditAvailable = wallets
-      .filter((wallet) => isCreditWallet(wallet))
-      .reduce((acc, wallet) => acc + Number(wallet.balance || 0), 0);
-
-    const income = transactions
-      .filter((item) => item.type === "income")
-      .reduce((acc, item) => acc + Number(item.amount || 0), 0);
-
-    const realExpense = transactions
-      .filter((item) => {
-        const wallet = walletById[getTransactionWalletId(item)];
-        return item.type === "expense" && !isCreditWallet(wallet);
-      })
-      .reduce((acc, item) => acc + Number(item.amount || 0), 0);
-
-    const creditExpense = transactions
-      .filter((item) => {
-        const wallet = walletById[getTransactionWalletId(item)];
-        return item.type === "expense" && isCreditWallet(wallet);
-      })
-      .reduce((acc, item) => acc + Number(item.amount || 0), 0);
-
-    const expense = realExpense + creditExpense;
-
-    return {
-      income,
-      expense,
-      realBalance,
-      creditAvailable,
-      realExpense,
-      creditExpense,
-    };
-  }, [wallets, transactions]);
+  const totals = useMemo(
+    () => buildFinancialSnapshot(wallets, transactions),
+    [wallets, transactions]
+  );
 
   const walletOverview = useMemo(() => {
-    const normalizedWallets = wallets.map((wallet, index) => ({
-      ...wallet,
-      name: String(wallet.name || "Carteira"),
-      type: String(wallet.type || "checking"),
-      balance: Number(wallet.balance || 0),
-      createdAt: wallet.created_at || wallet.createdAt || "",
-      updatedAt: wallet.updated_at || wallet.updatedAt || "",
-      color:
-        wallet.color ||
-        "from-indigo-600 to-violet-800 text-white border-indigo-500",
-      currency: wallet.currency || profile.currency,
-      index,
-    }));
+    const normalizedWallets: WalletOverviewItem[] = wallets.map(
+      (wallet, index) => {
+        const normalized = wallet as Wallet & {
+          created_at?: string;
+          createdAt?: string;
+          updated_at?: string;
+          updatedAt?: string;
+        };
+
+        return {
+          ...wallet,
+          name: String(wallet.name || "Carteira"),
+          type: (wallet.type || "checking") as Wallet["type"],
+          balance: Number(wallet.balance || 0),
+          createdAt: normalized.created_at || normalized.createdAt || "",
+          updatedAt: normalized.updated_at || normalized.updatedAt || "",
+          color:
+            wallet.color ||
+            "from-indigo-600 to-violet-800 text-white border-indigo-500",
+          currency: wallet.currency || profile.currency,
+          index,
+        };
+      }
+    );
 
     const searchTerm = walletSearch.trim().toLowerCase();
 
@@ -587,8 +633,8 @@ export default function App() {
     "";
 
   return (
-    <main className="min-h-screen bg-mesh-radial pb-12 text-slate-800">
-      <header className="sticky top-0 z-50 border-b border-slate-200/50 bg-white/70 px-6 py-4 backdrop-blur-xl">
+    <main className="release-shell min-h-screen bg-mesh-radial pb-12 text-slate-800">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/70 px-6 py-4 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img
@@ -599,7 +645,7 @@ export default function App() {
 
             <div>
               <span className="block text-xl font-black tracking-tight text-slate-900">
-                Pibble<span className="text-indigo-600">Finance</span>
+                Pibble<span className="text-indigo-400">Finance</span>
               </span>
 
               <span className="text-xs font-medium text-slate-500">
@@ -609,19 +655,39 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-semibold text-slate-400 md:flex">
+              <Clock3 size={13} className="text-indigo-300" />
+              {isRefreshing
+                ? "Sincronizando..."
+                : `Atualizado ${getRelativeTimeLabel(lastSyncAt)}`}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => refreshWorkspace()}
+              disabled={isRefreshing}
+              className="flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-bold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCw
+                size={14}
+                className={isRefreshing ? "animate-spin text-indigo-300" : "text-indigo-300"}
+              />
+              Atualizar
+            </button>
+
             <select
               value={profile.currency}
               onChange={(event) =>
                 handleChangeCurrency(event.target.value as "BRL" | "USD" | "EUR")
               }
-              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm outline-none transition hover:border-indigo-300 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+              className="h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-bold text-slate-200 shadow-sm outline-none transition hover:border-indigo-300 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
             >
               <option value="BRL">BRL</option>
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
             </select>
 
-            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-indigo-200 bg-indigo-100 shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-indigo-500/30 bg-indigo-500/10 shadow-sm">
               {googleAvatarUrl ? (
                 <img
                   src={googleAvatarUrl}
@@ -640,7 +706,7 @@ export default function App() {
 
             <button
               onClick={handleLogout}
-              className="rounded-xl border border-slate-200 p-2.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-500"
+              className="rounded-xl border border-white/10 p-2.5 text-slate-400 transition hover:bg-rose-500/10 hover:text-rose-300"
               title="Sair"
             >
               <LogOut size={16} />
@@ -649,84 +715,85 @@ export default function App() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-[1400px] px-6 pt-8">
-        <div className="mb-8 grid gap-4 lg:grid-cols-4">
-          <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-xl backdrop-blur-xl">
+      <section className="mx-auto max-w-[1440px] px-4 pb-10 pt-6 sm:px-6 lg:px-8">
+        <div className="mb-8 grid gap-4 lg:grid-cols-[1.3fr_0.9fr_0.9fr_0.9fr]">
+          <div className="card-premium relative overflow-hidden rounded-[28px] p-6 lg:p-7">
+            <div className="pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-indigo-500/10 blur-3xl" />
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400">
                 Saldo disponível
               </span>
-              <WalletIcon size={18} className="text-indigo-500" />
+              <WalletIcon size={18} className="text-indigo-300" />
             </div>
 
-            <strong className="text-3xl font-black text-slate-950">
-              {formatMoney(totals.realBalance, profile.currency)}
+            <strong className="text-3xl font-black tracking-tight text-white lg:text-[2.15rem]">
+              {formatMoney(totals.cashBalance, profile.currency)}
             </strong>
 
-            <p className="mt-2 text-[11px] font-medium text-slate-400">
+            <p className="mt-3 max-w-sm text-sm leading-6 text-slate-400">
               Débito, conta corrente, pix, dinheiro e investimentos.
             </p>
           </div>
 
-          <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-xl backdrop-blur-xl">
+          <div className="card-premium rounded-[28px] p-6">
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400">
                 Crédito restante
               </span>
-              <WalletIcon size={18} className="text-violet-500" />
+              <WalletIcon size={18} className="text-violet-300" />
             </div>
 
-            <strong className="text-3xl font-black text-violet-600">
-              {formatMoney(totals.creditAvailable, profile.currency)}
+            <strong className="text-3xl font-black tracking-tight text-white">
+              {formatMoney(totals.creditRemaining, profile.currency)}
             </strong>
 
-            <p className="mt-2 text-[11px] font-medium text-slate-400">
+            <p className="mt-3 text-sm leading-6 text-slate-400">
               Limite disponível nas carteiras de crédito.
             </p>
           </div>
 
-          <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-xl backdrop-blur-xl">
+          <div className="card-premium rounded-[28px] p-6">
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400">
                 Gasto no saldo
               </span>
-              <ArrowDownCircle size={18} className="text-orange-500" />
+              <ArrowDownCircle size={18} className="text-orange-300" />
             </div>
 
-            <strong className="text-3xl font-black text-orange-600">
-              {formatMoney(totals.realExpense, profile.currency)}
+            <strong className="text-3xl font-black tracking-tight text-white">
+              {formatMoney(totals.debitExpenses, profile.currency)}
             </strong>
 
-            <p className="mt-2 text-[11px] font-medium text-slate-400">
+            <p className="mt-3 text-sm leading-6 text-slate-400">
               Saídas em débito, conta corrente, pix e dinheiro.
             </p>
           </div>
 
-          <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-xl backdrop-blur-xl">
+          <div className="card-premium rounded-[28px] p-6">
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400">
                 Gasto no crédito
               </span>
-              <ArrowDownCircle size={18} className="text-rose-500" />
+              <ArrowDownCircle size={18} className="text-rose-300" />
             </div>
 
-            <strong className="text-3xl font-black text-rose-600">
-              {formatMoney(totals.creditExpense, profile.currency)}
+            <strong className="text-3xl font-black tracking-tight text-white">
+              {formatMoney(totals.creditExpenses, profile.currency)}
             </strong>
 
-            <p className="mt-2 text-[11px] font-medium text-slate-400">
+            <p className="mt-3 text-sm leading-6 text-slate-400">
               Saídas lançadas em carteiras de crédito.
             </p>
           </div>
         </div>
 
-        <div className="mb-8 flex flex-wrap gap-2">
+        <div className="mb-8 inline-flex rounded-[22px] border border-white/10 bg-white/5 p-1 backdrop-blur-sm">
           <button
             onClick={() => setActiveTab("dashboard")}
-            className={`rounded-2xl px-4 py-2 text-xs font-bold transition ${
+            className={`rounded-[18px] px-4 py-2.5 text-xs font-bold transition ${
               activeTab === "dashboard"
-                ? "bg-slate-950 text-white"
-                : "bg-white text-slate-500 hover:text-slate-900"
+                ? "bg-white text-slate-950 shadow-sm"
+                : "text-slate-400 hover:text-white"
             }`}
           >
             Dashboard
@@ -734,10 +801,10 @@ export default function App() {
 
           <button
             onClick={() => setActiveTab("wallets")}
-            className={`rounded-2xl px-4 py-2 text-xs font-bold transition ${
+            className={`rounded-[18px] px-4 py-2.5 text-xs font-bold transition ${
               activeTab === "wallets"
-                ? "bg-slate-950 text-white"
-                : "bg-white text-slate-500 hover:text-slate-900"
+                ? "bg-white text-slate-950 shadow-sm"
+                : "text-slate-400 hover:text-white"
             }`}
           >
             Carteiras
@@ -745,10 +812,10 @@ export default function App() {
 
           <button
             onClick={() => setActiveTab("transactions")}
-            className={`rounded-2xl px-4 py-2 text-xs font-bold transition ${
+            className={`rounded-[18px] px-4 py-2.5 text-xs font-bold transition ${
               activeTab === "transactions"
-                ? "bg-slate-950 text-white"
-                : "bg-white text-slate-500 hover:text-slate-900"
+                ? "bg-white text-slate-950 shadow-sm"
+                : "text-slate-400 hover:text-white"
             }`}
           >
             Transações
@@ -756,7 +823,7 @@ export default function App() {
         </div>
 
         {activeTab === "dashboard" && (
-          <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
+          <div className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
             <div className="space-y-6">
               <DashboardCharts
                 wallets={wallets}
@@ -797,27 +864,27 @@ export default function App() {
               />
             </div>
 
-            <div className="min-h-[560px] rounded-3xl border border-white/60 bg-white/80 p-8 shadow-xl backdrop-blur-xl">
+            <div className="card-premium min-h-[560px] rounded-[28px] p-6 lg:p-8">
               <div className="mb-8 flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-black text-slate-950">
+                  <h2 className="text-2xl font-black tracking-tight text-white">
                     Minhas carteiras
                   </h2>
 
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-2 text-sm leading-6 text-slate-400">
                     Gerencie suas contas, cartões e investimentos em um só lugar.
                   </p>
                 </div>
 
-                <span className="shrink-0 rounded-full bg-slate-100 px-4 py-2 text-xs font-bold text-slate-500">
+                <span className="shrink-0 rounded-full border border-white/10 bg-white/6 px-4 py-2 text-xs font-bold text-slate-300">
                   {walletOverview.totalCount}{" "}
                   {walletOverview.totalCount === 1 ? "carteira" : "carteiras"}
                 </span>
               </div>
 
-              <div className="mb-6 grid gap-3 rounded-3xl border border-slate-100 bg-slate-50/70 p-4 xl:grid-cols-[1.4fr_0.8fr_0.8fr]">
+              <div className="mb-6 grid gap-3 rounded-[24px] border border-white/10 bg-white/5 p-4 xl:grid-cols-[1.4fr_0.8fr_0.8fr]">
                 <label className="relative block">
-                  <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                  <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                     Buscar carteira
                   </span>
 
@@ -827,14 +894,14 @@ export default function App() {
                       value={walletSearch}
                       onChange={(event) => setWalletSearch(event.target.value)}
                       placeholder="Nome, tipo, moeda ou saldo"
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-16 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                      className="field-premium w-full rounded-2xl px-4 py-3 pr-16 text-sm outline-none transition"
                     />
 
                     {walletSearch.trim() ? (
                       <button
                         type="button"
                         onClick={() => setWalletSearch("")}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 transition hover:bg-slate-100"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-white/6 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-300 transition hover:bg-white/10"
                       >
                         Limpar
                       </button>
@@ -843,7 +910,7 @@ export default function App() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                  <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                     Ordenar por
                   </span>
 
@@ -854,7 +921,7 @@ export default function App() {
                         event.target.value as "recent" | "name" | "balance" | "type"
                       )
                     }
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                    className="field-premium w-full rounded-2xl px-4 py-3 text-sm outline-none transition"
                   >
                     <option value="recent">Mais recentes</option>
                     <option value="name">Nome</option>
@@ -864,20 +931,20 @@ export default function App() {
                 </label>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-2xl border border-white/70 bg-white p-3">
-                    <span className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                       Exibidas
                     </span>
-                    <strong className="mt-1 block text-lg font-black text-slate-950">
+                    <strong className="mt-1 block text-lg font-black text-white">
                       {walletOverview.filteredCount}
                     </strong>
                   </div>
 
-                  <div className="rounded-2xl border border-white/70 bg-white p-3">
-                    <span className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                       Saldo total
                     </span>
-                    <strong className="mt-1 block truncate text-lg font-black text-slate-950">
+                    <strong className="mt-1 block truncate text-lg font-black text-white">
                       {formatMoney(walletOverview.totalBalance, profile.currency)}
                     </strong>
                   </div>
@@ -891,7 +958,7 @@ export default function App() {
                   .map(([type, value]) => (
                     <span
                       key={type}
-                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-500"
+                      className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-bold text-slate-300"
                     >
                       {getWalletTypeLabel(type)}: {formatMoney(value, profile.currency)}
                     </span>
@@ -899,10 +966,10 @@ export default function App() {
               </div>
 
               {walletOverview.wallets.length === 0 ? (
-                <div className="flex min-h-[380px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50/70 text-center">
-                  <WalletIcon size={42} className="mb-4 text-slate-300" />
+                <div className="flex min-h-[380px] flex-col items-center justify-center rounded-3xl border border-dashed border-white/10 bg-white/5 text-center">
+                  <WalletIcon size={42} className="mb-4 text-slate-500" />
 
-                  <strong className="text-base font-black text-slate-800">
+                  <strong className="text-base font-black text-white">
                     {walletOverview.totalCount === 0
                       ? "Nenhuma carteira cadastrada"
                       : "Nenhuma carteira encontrada"}
@@ -915,32 +982,33 @@ export default function App() {
                   </p>
 
                   {walletOverview.totalCount > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setWalletSearch("");
-                        setWalletSort("recent");
-                      }}
-                      className="mt-5 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-100"
-                    >
-                      Limpar filtros
-                    </button>
-                  ) : null}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWalletSearch("");
+                          setWalletSort("recent");
+                        }}
+                        className="mt-5 rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-2 text-xs font-bold text-indigo-200 transition hover:bg-indigo-500/15"
+                      >
+                        Limpar filtros
+                      </button>
+                    ) : null}
                 </div>
               ) : (
                 <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                   {walletOverview.wallets.map((wallet) => (
                     <div
                       key={wallet.id}
-                      className={`relative overflow-hidden rounded-3xl border bg-gradient-to-br p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${
+                      className={`relative overflow-hidden rounded-[28px] border p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${
                         wallet.color ||
                         "from-indigo-600 to-violet-800 text-white border-indigo-500"
                       }`}
                     >
-                      <div className="pointer-events-none absolute right-0 top-0 -mr-8 -mt-8 h-32 w-32 rounded-full bg-white/15 backdrop-blur-3xl" />
+                      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(145deg,rgba(99,102,241,0.16),transparent_35%),linear-gradient(315deg,rgba(16,185,129,0.08),transparent_40%)]" />
+                      <div className="pointer-events-none absolute right-0 top-0 -mr-8 -mt-8 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
 
                       <div className="relative mb-6 flex items-start justify-between gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-white shadow-sm backdrop-blur-md">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white shadow-sm backdrop-blur-md">
                           <WalletIcon size={22} />
                         </div>
 
@@ -955,25 +1023,25 @@ export default function App() {
                       </div>
 
                       <div className="relative">
-                        <strong className="block truncate text-lg font-black text-white">
+                        <strong className="block truncate text-lg font-black tracking-tight text-white">
                           {wallet.name}
                         </strong>
 
                         <div className="mt-2 flex flex-wrap gap-2">
-                          <span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-white/80">
+                          <span className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white/80">
                             {getWalletTypeLabel(wallet.type)}
                           </span>
-                          <span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-white/80">
+                          <span className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white/80">
                             {wallet.currency || profile.currency}
                           </span>
                         </div>
 
-                        <div className="mt-6 border-t border-white/15 pt-5">
-                          <span className="block text-xs font-bold uppercase tracking-widest text-white/70">
+                        <div className="mt-6 border-t border-white/10 pt-5">
+                          <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-white/60">
                             Saldo atual
                           </span>
 
-                          <strong className="mt-1 block text-3xl font-black text-white">
+                          <strong className="mt-1 block text-3xl font-black tracking-tight text-white">
                             {formatMoney(
                               Number(wallet.balance || 0),
                               wallet.currency || profile.currency
@@ -998,6 +1066,7 @@ export default function App() {
             <TransactionForm
               wallets={wallets}
               onAddTransaction={handleAddTransaction}
+              currency={profile.currency}
             />
 
             <TransactionList

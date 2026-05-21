@@ -4,15 +4,16 @@
  */
 
 import { useMemo, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import {
-  Search,
-  Trash2,
-  ArrowUpRight,
   ArrowDownLeft,
-  RefreshCw,
-  SlidersHorizontal,
+  ArrowUpRight,
   FileSpreadsheet,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  ClipboardCopy,
 } from "lucide-react";
 
 import type { Transaction, Wallet } from "../types";
@@ -50,9 +51,38 @@ function getTransactionDate(transaction: Transaction) {
 }
 
 function isSameDate(dateA: Date, dateB: Date) {
-  return dateA.getFullYear() === dateB.getFullYear() &&
+  return (
+    dateA.getFullYear() === dateB.getFullYear() &&
     dateA.getMonth() === dateB.getMonth() &&
-    dateA.getDate() === dateB.getDate();
+    dateA.getDate() === dateB.getDate()
+  );
+}
+
+function getCategoryLabel(categoryValue: string) {
+  const categoryObj = PRESET_CATEGORIES.find(
+    (category) =>
+      category.id === categoryValue.toLowerCase() ||
+      category.name.toLowerCase() === categoryValue.toLowerCase()
+  );
+
+  return categoryObj ? categoryObj.name : categoryValue;
+}
+
+function copyToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+  return Promise.resolve();
 }
 
 export default function TransactionList({
@@ -66,6 +96,7 @@ export default function TransactionList({
   const [walletFilter, setWalletFilter] = useState("all");
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("all");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [copiedState, setCopiedState] = useState<"idle" | "copied">("idle");
 
   const walletMap = useMemo(() => {
     return wallets.reduce<Record<string, Wallet>>((acc, wallet) => {
@@ -84,17 +115,13 @@ export default function TransactionList({
       const description = getTransactionDescription(transaction);
       const transactionDateValue = getTransactionDate(transaction);
 
-      const categoryObj = PRESET_CATEGORIES.find(
-        (category) =>
-          category.id === categoryValue.toLowerCase() ||
-          category.name.toLowerCase() === categoryValue.toLowerCase()
-      );
+      const categoryLabel = getCategoryLabel(categoryValue);
 
       const matchSearch =
         normalizedSearch.length === 0 ||
         description.toLowerCase().includes(normalizedSearch) ||
         categoryValue.toLowerCase().includes(normalizedSearch) ||
-        (categoryObj?.name || "").toLowerCase().includes(normalizedSearch) ||
+        categoryLabel.toLowerCase().includes(normalizedSearch) ||
         (walletMap[walletId]?.name || "").toLowerCase().includes(normalizedSearch) ||
         (walletMap[toWalletId]?.name || "").toLowerCase().includes(normalizedSearch);
 
@@ -133,6 +160,41 @@ export default function TransactionList({
     });
   }, [transactions, search, typeFilter, walletFilter, periodFilter, walletMap]);
 
+  async function handleCopySummary() {
+    if (filteredTransactions.length === 0) return;
+
+    const text = filteredTransactions
+      .map((transaction) => {
+        const walletId = getTransactionWalletId(transaction);
+        const toWalletId = getTransactionToWalletId(transaction);
+        const categoryValue = getTransactionCategory(transaction);
+        const typeLabel =
+          transaction.type === "income"
+            ? "Entrada"
+            : transaction.type === "expense"
+            ? "Saída"
+            : "Transferência";
+
+        const route =
+          transaction.type === "transfer"
+            ? `${walletMap[walletId]?.name || "Origem"} → ${
+                walletMap[toWalletId]?.name || "Destino"
+              }`
+            : walletMap[walletId]?.name || "Carteira";
+
+        return `• ${formatDate(getTransactionDate(transaction))} | ${typeLabel} | ${getCategoryLabel(
+          categoryValue
+        )} | ${route} | ${formatMoney(transaction.amount, currency)} | ${getTransactionDescription(
+          transaction
+        )}`;
+      })
+      .join("\n");
+
+    await copyToClipboard(text);
+    setCopiedState("copied");
+    window.setTimeout(() => setCopiedState("idle"), 1500);
+  }
+
   function handleExportCSV() {
     if (filteredTransactions.length === 0) return;
 
@@ -150,11 +212,6 @@ export default function TransactionList({
       const walletId = getTransactionWalletId(transaction);
       const toWalletId = getTransactionToWalletId(transaction);
       const categoryValue = getTransactionCategory(transaction);
-      const categoryObj = PRESET_CATEGORIES.find(
-        (category) =>
-          category.id === categoryValue.toLowerCase() ||
-          category.name.toLowerCase() === categoryValue.toLowerCase()
-      );
 
       return [
         formatDate(getTransactionDate(transaction)),
@@ -163,7 +220,7 @@ export default function TransactionList({
           : transaction.type === "expense"
           ? "Saída"
           : "Transferência",
-        categoryObj ? categoryObj.name : categoryValue,
+        getCategoryLabel(categoryValue),
         walletMap[walletId]?.name || "N/A",
         toWalletId ? walletMap[toWalletId]?.name || "N/A" : "",
         String(transaction.amount || 0),
@@ -187,40 +244,57 @@ export default function TransactionList({
     document.body.removeChild(link);
   }
 
+  const activeFiltersCount =
+    Number(typeFilter !== "all") +
+    Number(walletFilter !== "all") +
+    Number(periodFilter !== "all") +
+    Number(search.trim().length > 0);
+
   return (
-    <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-xs transition-all duration-300">
-      <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+    <div className="rounded-[28px] border border-white/10 bg-slate-950/75 p-6 text-white shadow-[0_24px_80px_rgba(2,6,23,0.35)] backdrop-blur-xl">
+      <div className="mb-5 flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
-          <h3 className="font-display text-lg font-bold text-slate-900">
-            Histórico de Transações
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">
+            <FileSpreadsheet size={12} />
+            Histórico de lançamentos
+          </div>
+          <h3 className="text-xl font-black tracking-tight text-white">
+            Transações recentes
           </h3>
-          <p className="text-xs text-slate-500">
-            Filtre, pesquise e faça exportações dos fluxos fiscais
+          <p className="mt-1 text-sm leading-6 text-slate-400">
+            Pesquise, filtre e exporte o que entrou, saiu ou foi transferido.
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-              showAdvanced ||
-              typeFilter !== "all" ||
-              walletFilter !== "all" ||
-              periodFilter !== "all"
-                ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-                : "border-slate-250 bg-white text-slate-600 hover:bg-slate-50"
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+              showAdvanced || activeFiltersCount > 0
+                ? "border-indigo-400/30 bg-indigo-500/10 text-indigo-200"
+                : "border-white/10 bg-white/6 text-slate-300 hover:bg-white/10"
             }`}
           >
             <SlidersHorizontal size={13} />
-            {showAdvanced ? "Ocultar Filtros" : "Filtros"}
+            {showAdvanced ? "Ocultar filtros" : "Filtros"}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCopySummary}
+            disabled={filteredTransactions.length === 0}
+            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/6 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ClipboardCopy size={13} />
+            {copiedState === "copied" ? "Copiado" : "Copiar resumo"}
           </button>
 
           <button
             type="button"
             onClick={handleExportCSV}
             disabled={filteredTransactions.length === 0}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-250 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-all cursor-pointer hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-50 disabled:text-slate-350"
+            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/6 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <FileSpreadsheet size={13} />
             Exportar CSV
@@ -228,59 +302,56 @@ export default function TransactionList({
         </div>
       </div>
 
-      <div className="mb-6 space-y-3">
+      <div className="mb-5 space-y-3">
         <div className="relative">
           <Search
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
             size={16}
           />
           <input
             type="text"
-            placeholder="Pesquise por mercado, salário, freelance, conta ou categoria..."
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-xs text-slate-900 placeholder-slate-400 transition-all focus:border-indigo-600 focus:bg-white focus:outline-hidden"
+            placeholder="Buscar por título, categoria, carteira ou descrição"
+            className="w-full rounded-2xl border border-white/10 bg-white/6 py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-indigo-400/40 focus:bg-white/8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
         <AnimatePresence>
-          {(showAdvanced ||
-            typeFilter !== "all" ||
-            walletFilter !== "all" ||
-            periodFilter !== "all") && (
+          {(showAdvanced || activeFiltersCount > 0) && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden"
             >
-              <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-xs sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 rounded-3xl border border-white/10 bg-white/5 p-4 text-xs md:grid-cols-3">
                 <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase text-slate-600">
-                    Tipo de Fluxo
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                    Tipo
                   </label>
                   <select
-                    className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs focus:outline-hidden"
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none"
                     value={typeFilter}
                     onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
                   >
-                    <option value="all">Ver Tudo</option>
-                    <option value="expense">Saídas (Despesas)</option>
-                    <option value="income">Entradas (Receitas)</option>
+                    <option value="all">Ver tudo</option>
+                    <option value="expense">Saídas</option>
+                    <option value="income">Entradas</option>
                     <option value="transfer">Transferências</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase text-slate-600">
-                    Conta de Vínculo
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                    Carteira
                   </label>
                   <select
-                    className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs focus:outline-hidden"
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none"
                     value={walletFilter}
                     onChange={(e) => setWalletFilter(e.target.value)}
                   >
-                    <option value="all">Qualquer Carteira</option>
+                    <option value="all">Qualquer carteira</option>
                     {wallets.map((wallet) => (
                       <option key={wallet.id} value={wallet.id}>
                         {wallet.name}
@@ -290,18 +361,18 @@ export default function TransactionList({
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase text-slate-600">
-                    Período Fiscal
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                    Período
                   </label>
                   <select
-                    className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs focus:outline-hidden"
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none"
                     value={periodFilter}
                     onChange={(e) => setPeriodFilter(e.target.value as PeriodFilter)}
                   >
-                    <option value="all">Qualquer Momento</option>
+                    <option value="all">Qualquer momento</option>
                     <option value="today">Hoje</option>
                     <option value="week">Últimos 7 dias</option>
-                    <option value="month">Este Mês</option>
+                    <option value="month">Este mês</option>
                   </select>
                 </div>
               </div>
@@ -310,17 +381,25 @@ export default function TransactionList({
         </AnimatePresence>
       </div>
 
-      <div className="max-h-[420px] space-y-2.5 overflow-y-auto pr-1">
+      <div className="mb-4 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+        <span>
+          {filteredTransactions.length} resultado
+          {filteredTransactions.length === 1 ? "" : "s"}
+        </span>
+        <span>{transactions.length} lançamentos no total</span>
+      </div>
+
+      <div className="max-h-[460px] space-y-2.5 overflow-y-auto pr-1">
         {filteredTransactions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-100 bg-slate-50/50 py-12 text-center text-slate-400">
-            <SlidersHorizontal size={24} className="mb-2 text-slate-400" />
-            <p className="text-xs font-semibold text-slate-600">
-              Nenhum lançamento corresponde
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-white/10 bg-white/5 px-4 py-14 text-center text-slate-400">
+            <SlidersHorizontal size={24} className="mb-2 text-slate-500" />
+            <p className="text-sm font-semibold text-slate-200">
+              Nenhum lançamento encontrado
             </p>
-            <p className="mt-1 px-4 text-[10px] text-slate-400">
+            <p className="mt-1 max-w-sm text-xs leading-6 text-slate-500">
               {transactions.length === 0
-                ? "Cadastre movimentações financeiras para iniciar seu extrato."
-                : "Remova ou altere os filtros aplicados acima para listar transações."}
+                ? "Cadastre movimentações para começar a ver seu histórico."
+                : "Ajuste os filtros ou limpe a busca para ver mais resultados."}
             </p>
           </div>
         ) : (
@@ -329,26 +408,33 @@ export default function TransactionList({
               const walletId = getTransactionWalletId(transaction);
               const toWalletId = getTransactionToWalletId(transaction);
               const categoryValue = getTransactionCategory(transaction);
-              const categoryObj = PRESET_CATEGORIES.find(
-                (category) =>
-                  category.id === categoryValue.toLowerCase() ||
-                  category.name.toLowerCase() === categoryValue.toLowerCase()
-              );
+              const categoryLabel = getCategoryLabel(categoryValue);
               const sourceWalletName = walletMap[walletId]?.name || "Outro";
-              const destinationWalletName = walletMap[toWalletId]?.name || "Conta Receptora";
-              const description = getTransactionDescription(transaction) || "Lançamento sem nota descritiva";
-              const badgeBg = categoryObj ? categoryObj.color : "bg-slate-400 text-white";
+              const destinationWalletName =
+                walletMap[toWalletId]?.name || "Conta receptora";
+              const description =
+                getTransactionDescription(transaction) ||
+                "Lançamento sem nota descritiva";
+
+              const toneClass =
+                transaction.type === "income"
+                  ? "text-emerald-300"
+                  : transaction.type === "expense"
+                  ? "text-rose-300"
+                  : "text-sky-300";
 
               return (
                 <motion.div
                   key={transaction.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-slate-50/20 p-3.5 text-xs transition-all duration-200 hover:bg-slate-50/60 hover:shadow-2xs"
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  className="flex items-center justify-between gap-4 rounded-3xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/8"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border shadow-2xs ${badgeBg}`}>
+                    <div
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-slate-900/70 ${toneClass}`}
+                    >
                       {transaction.type === "transfer" ? (
                         <RefreshCw size={15} />
                       ) : transaction.type === "income" ? (
@@ -359,31 +445,31 @@ export default function TransactionList({
                     </div>
 
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="truncate font-bold text-slate-900">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-sm font-bold text-white">
                           {description}
                         </span>
-                        <span className="text-[10px] font-medium text-slate-400">
-                          • {categoryObj ? categoryObj.name : categoryValue}
+                        <span className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                          {categoryLabel}
                         </span>
                       </div>
 
-                      <p className="mt-0.5 text-[10px] font-medium text-slate-400">
+                      <p className="mt-1 text-xs leading-5 text-slate-400">
                         {transaction.type === "transfer" ? (
                           <span>
-                            Surgiu de{" "}
-                            <strong className="text-slate-500">
+                            De{" "}
+                            <strong className="text-slate-200">
                               {sourceWalletName}
                             </strong>{" "}
                             para{" "}
-                            <strong className="text-indigo-600">
+                            <strong className="text-indigo-200">
                               {destinationWalletName}
                             </strong>
                           </span>
                         ) : (
                           <span>
-                            Contabilizado na carteira{" "}
-                            <strong className="text-slate-500">
+                            Carteira{" "}
+                            <strong className="text-slate-200">
                               {sourceWalletName}
                             </strong>
                           </span>
@@ -398,10 +484,10 @@ export default function TransactionList({
                     <span
                       className={`font-mono text-sm font-bold tracking-tight ${
                         transaction.type === "income"
-                          ? "text-emerald-600"
+                          ? "text-emerald-300"
                           : transaction.type === "expense"
-                          ? "text-rose-600"
-                          : "text-blue-600"
+                          ? "text-rose-300"
+                          : "text-sky-300"
                       }`}
                     >
                       {transaction.type === "income"
@@ -415,8 +501,8 @@ export default function TransactionList({
                     <button
                       type="button"
                       onClick={() => onDeleteTransaction(transaction.id)}
-                      className="rounded-lg p-1.5 text-slate-350 transition-colors cursor-pointer hover:bg-rose-50 hover:text-rose-500"
-                      title="Excluir Lançamento"
+                      className="rounded-xl border border-white/10 bg-white/6 p-2 text-slate-400 transition hover:border-rose-400/30 hover:bg-rose-500/10 hover:text-rose-200"
+                      title="Excluir lançamento"
                     >
                       <Trash2 size={13} />
                     </button>
@@ -430,4 +516,3 @@ export default function TransactionList({
     </div>
   );
 }
-

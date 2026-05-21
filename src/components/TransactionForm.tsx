@@ -139,14 +139,14 @@ export default function TransactionForm({
   }, [amount, walletId, toWalletId, category, type]);
 
   return (
-    <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-xs transition-all duration-300">
+    <div className="card-premium rounded-[28px] p-6">
       <div className="mb-6">
-        <h3 className="font-display flex items-center gap-2 text-lg font-bold text-slate-900">
-          <PlusCircle className="text-emerald-500" size={20} />
+        <h3 className="font-display flex items-center gap-2 text-lg font-bold text-white">
+          <PlusCircle className="text-emerald-300" size={20} />
           Registrar Lançamento
         </h3>
 
-        <p className="text-xs text-slate-500">
+        <p className="mt-1 text-sm leading-6 text-slate-400">
           Adicione suas movimentações para atualizar instantaneamente o saldo das
           contas.
         </p>
@@ -157,10 +157,10 @@ export default function TransactionForm({
           <button
             type="button"
             onClick={() => handleTypeChange("expense")}
-            className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition-all ${
+            className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-2xl border py-3 text-xs font-semibold transition-all ${
               type === "expense"
-                ? "border-rose-200 bg-rose-50 text-rose-700 shadow-xs"
-                : "border-slate-200/60 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                ? "border-rose-400/20 bg-rose-500/10 text-rose-200 shadow-xs"
+                : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/8"
             }`}
           >
             <ArrowDownCircle size={14} />
@@ -170,10 +170,10 @@ export default function TransactionForm({
           <button
             type="button"
             onClick={() => handleTypeChange("income")}
-            className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition-all ${
+            className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-2xl border py-3 text-xs font-semibold transition-all ${
               type === "income"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700 shadow-xs"
-                : "border-slate-200/60 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200 shadow-xs"
+                : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/8"
             }`}
           >
             <ArrowUpCircle size={14} />
@@ -183,10 +183,10 @@ export default function TransactionForm({
           <button
             type="button"
             onClick={() => handleTypeChange("transfer")}
-            className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition-all ${
+            className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-2xl border py-3 text-xs font-semibold transition-all ${
               type === "transfer"
-                ? "border-blue-200 bg-blue-50 text-blue-700 shadow-xs"
-                : "border-slate-200/60 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                ? "border-sky-400/20 bg-sky-500/10 text-sky-200 shadow-xs"
+                : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/8"
             }`}
           >
             <RefreshCw size={14} />
@@ -195,7 +195,7 @@ export default function TransactionForm({
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-700">
+          <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
             Valor ({currency})
           </label>
 
@@ -208,7 +208,7 @@ export default function TransactionForm({
               type="number"
               step="any"
               placeholder="0,00"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 font-mono text-base font-bold text-slate-900 transition-all focus:border-indigo-600 focus:bg-white focus:outline-hidden"
+              className="field-premium w-full rounded-2xl py-3 pl-10 pr-4 font-mono text-base font-bold outline-none transition-all"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               required
@@ -218,12 +218,12 @@ export default function TransactionForm({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-700">
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
               {type === "transfer" ? "Origem" : "Conta / Carteira"}
             </label>
 
             <select
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-800 transition-all focus:border-indigo-600 focus:bg-white focus:outline-hidden"
+              className="field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all"
               value={walletId}
               onChange={(e) => setWalletId(e.target.value)}
               required
@@ -240,12 +240,12 @@ export default function TransactionForm({
 
           {type === "transfer" ? (
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-700">
+              <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                 Destino
               </label>
 
               <select
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-800 transition-all focus:border-indigo-600 focus:bg-white focus:outline-hidden"
+                className="field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all"
                 value={toWalletId}
                 onChange={(e) => setToWalletId(e.target.value)}
                 required
@@ -263,12 +263,12 @@ export default function TransactionForm({
             </div>
           ) : (
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-700">
+              <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                 Categoria
               </label>
 
               <select
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-800 transition-all focus:border-indigo-600 focus:bg-white focus:outline-hidden"
+                className="field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 required
@@ -287,13 +287,13 @@ export default function TransactionForm({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-700">
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
               Data
             </label>
 
             <input
               type="date"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 transition-all focus:border-indigo-600 focus:bg-white focus:outline-hidden"
+              className="field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all"
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required
@@ -301,14 +301,14 @@ export default function TransactionForm({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-700">
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
               Descrição / Nota
             </label>
 
             <input
               type="text"
               placeholder="Ex: Compras no mercado, Freelance..."
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 transition-all focus:border-indigo-600 focus:bg-white focus:outline-hidden"
+              className="field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -316,7 +316,7 @@ export default function TransactionForm({
         </div>
 
         {type !== "transfer" && category && (
-          <div className="flex items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50 p-3">
+          <div className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/5 p-3">
             <div
               className={`shrink-0 rounded-lg p-1.5 ${
                 PRESET_CATEGORIES.find((cat) => cat.id === category)?.color ||
@@ -332,9 +332,9 @@ export default function TransactionForm({
               />
             </div>
 
-            <div className="text-[10px] font-medium text-slate-500">
+            <div className="text-[10px] font-medium text-slate-400">
               Classificado em:{" "}
-              <strong className="text-slate-800">
+              <strong className="text-slate-200">
                 {PRESET_CATEGORIES.find((cat) => cat.id === category)?.name ||
                   category}
               </strong>
@@ -347,8 +347,8 @@ export default function TransactionForm({
           disabled={!isFormValid || isSubmitting}
           className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-3 text-xs font-semibold text-white shadow-xs transition-all duration-200 ${
             isFormValid && !isSubmitting
-              ? "bg-slate-900 hover:bg-slate-800 active:scale-97"
-              : "cursor-not-allowed bg-slate-200 text-slate-400"
+              ? "bg-white text-slate-950 hover:bg-slate-100 active:scale-97"
+              : "cursor-not-allowed bg-white/10 text-slate-500"
           }`}
         >
           {type === "transfer" ? (

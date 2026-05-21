@@ -16,13 +16,19 @@
   #root {
     min-height: 100vh;
     margin: 0;
-    background-color: #f8fafc;
+    background-color: #020617;
+    color-scheme: dark;
   }
 
   body {
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    color: #e2e8f0;
+    background:
+      radial-gradient(circle at top, rgba(99, 102, 241, 0.18), transparent 30%),
+      radial-gradient(circle at 85% 8%, rgba(14, 165, 233, 0.1), transparent 24%),
+      linear-gradient(180deg, #020617 0%, #0f172a 100%);
   }
 
   /* Interactive Elements Global Defaults */
@@ -34,6 +40,15 @@
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+  }
+
   button:disabled,
   select:disabled {
     cursor: not-allowed;
@@ -41,8 +56,34 @@
   }
 
   option {
-    background-color: #ffffff;
-    color: #0f172a;
+    background-color: #0f172a;
+    color: #e2e8f0;
+  }
+
+  ::selection {
+    background: rgba(99, 102, 241, 0.35);
+    color: #ffffff;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-color: rgba(51, 65, 85, 0.55);
+    background-clip: content-box;
   }
 }
 
@@ -50,11 +91,11 @@
 .bg-mesh-radial {
   background-attachment: fixed;
   background-image: 
-    radial-gradient(at 10% 10%, rgba(99, 102, 241, 0.09) 0px, transparent 55%),
-    radial-gradient(at 90% 10%, rgba(236, 72, 153, 0.07) 0px, transparent 50%),
-    radial-gradient(at 95% 90%, rgba(20, 184, 166, 0.06) 0px, transparent 50%),
-    radial-gradient(at 5% 95%, rgba(139, 92, 246, 0.06) 0px, transparent 50%),
-    radial-gradient(at 50% 50%, rgba(14, 165, 233, 0.04) 0px, transparent 60%);
+    radial-gradient(at 10% 10%, rgba(99, 102, 241, 0.18) 0px, transparent 55%),
+    radial-gradient(at 90% 10%, rgba(236, 72, 153, 0.12) 0px, transparent 50%),
+    radial-gradient(at 95% 90%, rgba(20, 184, 166, 0.1) 0px, transparent 50%),
+    radial-gradient(at 5% 95%, rgba(139, 92, 246, 0.12) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(14, 165, 233, 0.08) 0px, transparent 60%);
 }
 
 .bg-mesh-dark {
@@ -96,4 +137,142 @@
 
 .glow-dark {
   box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.4);
+}
+
+.release-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+.release-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(99, 102, 241, 0.14), transparent 24%),
+    radial-gradient(circle at 88% 12%, rgba(14, 165, 233, 0.08), transparent 22%),
+    radial-gradient(circle at 50% 100%, rgba(236, 72, 153, 0.08), transparent 30%);
+  opacity: 0.9;
+  z-index: -1;
+}
+
+.release-shell :is(.bg-white, .bg-white\/70, .bg-white\/80) {
+  background-color: rgba(15, 23, 42, 0.78);
+}
+
+.release-shell :is(.bg-slate-50, .bg-slate-50\/50, .bg-slate-50\/70, .bg-slate-100) {
+  background-color: rgba(15, 23, 42, 0.62);
+}
+
+.release-shell :is(.border-slate-100, .border-slate-200, .border-white\/60) {
+  border-color: rgba(148, 163, 184, 0.14);
+}
+
+.release-shell :is(.text-slate-900, .text-slate-950) {
+  color: #f8fafc;
+}
+
+.release-shell .text-slate-800 {
+  color: #e2e8f0;
+}
+
+.release-shell .text-slate-700 {
+  color: #cbd5e1;
+}
+
+.release-shell .text-slate-600 {
+  color: #94a3b8;
+}
+
+.release-shell .text-slate-500 {
+  color: #64748b;
+}
+
+.release-shell .text-slate-400 {
+  color: #7c8aa5;
+}
+
+.release-shell :is(input, select, textarea) {
+  background-color: rgba(2, 6, 23, 0.88);
+  border-color: rgba(148, 163, 184, 0.18);
+  color: #f8fafc;
+}
+
+.release-shell :is(input, select, textarea)::placeholder {
+  color: #64748b;
+}
+
+.release-shell :is(button, a, select, [role="button"]) {
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.release-shell .shadow-xl,
+.release-shell .shadow-2xl {
+  box-shadow:
+    0 18px 45px rgba(2, 6, 23, 0.4),
+    0 1px 0 rgba(255, 255, 255, 0.03) inset;
+}
+
+.surface-premium {
+  background: rgba(15, 23, 42, 0.76);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow:
+    0 24px 80px rgba(2, 6, 23, 0.38),
+    0 1px 0 rgba(255, 255, 255, 0.03) inset;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.surface-soft {
+  background: rgba(15, 23, 42, 0.58);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.card-premium {
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.82)),
+    rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow:
+    0 24px 70px rgba(2, 6, 23, 0.35),
+    0 1px 0 rgba(255, 255, 255, 0.03) inset;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.card-premium-soft {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  box-shadow:
+    0 16px 50px rgba(2, 6, 23, 0.26),
+    0 1px 0 rgba(255, 255, 255, 0.03) inset;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.field-premium {
+  background: rgba(2, 6, 23, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  color: #f8fafc;
+}
+
+.field-premium::placeholder {
+  color: #64748b;
+}
+
+.field-premium:focus {
+  border-color: rgba(129, 140, 248, 0.6);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.14);
 }
