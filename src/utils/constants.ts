@@ -27,11 +27,12 @@ export const PRESET_CATEGORIES: PresetCategory[] = [
 ];
 
 export const WALLET_TYPES = [
-  { id: 'checking', name: 'Conta Principal', icon: 'Building2', color: 'from-blue-600 to-indigo-600' },
-  { id: 'credit', name: 'Cartão de Crédito', icon: 'CreditCard', color: 'from-purple-600 to-pink-600' },
-  { id: 'cash', name: 'Dinheiro Físico', icon: 'Coins', color: 'from-emerald-500 to-teal-600' },
-  { id: 'savings', name: 'Reserva de Emergência', icon: 'PiggyBank', color: 'from-amber-500 to-orange-600' }
-];
+  { id: "checking", name: "Conta Corrente" },
+  { id: "debit", name: "Débito" },
+  { id: "credit", name: "Cartão de Crédito" },
+  { id: "cash", name: "Dinheiro Físico" },
+  { id: "savings", name: "Reserva de Emergência" },
+] as const;
 
 export const AVATAR_COLORS = [
   'bg-indigo-100 text-indigo-700 border-indigo-200',

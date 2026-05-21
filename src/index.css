@@ -5,18 +5,48 @@
   --font-sans: "Inter", ui-sans-serif, sans-serif;
   --font-display: "Space Grotesk", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
+
+  /* Custom utility extensions for Tailwind v4 */
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    min-height: 100vh;
+    margin: 0;
+    background-color: #f8fafc;
+  }
+
   body {
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-color: #f8fafc;
+  }
+
+  /* Interactive Elements Global Defaults */
+  button,
+  a,
+  select,
+  [role="button"] {
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  button:disabled,
+  select:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  option {
+    background-color: #ffffff;
+    color: #0f172a;
   }
 }
 
-/* Premium radial mesh gradient (degradê) for the application backdrop */
+/* Premium radial mesh gradients for the application backdrop */
 .bg-mesh-radial {
   background-attachment: fixed;
   background-image: 
@@ -67,18 +97,3 @@
 .glow-dark {
   box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.4);
 }
-
-/* Animation utilities */
-.animate-pulse-slow {
-  animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: .6;
-  }
-}
-

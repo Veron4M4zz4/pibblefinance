@@ -3,7 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type WalletType = 'checking' | 'credit' | 'cash' | 'savings';
+export type WalletType =
+  | "checking"
+  | "debit"
+  | "credit"
+  | "cash"
+  | "savings";
 
 export interface Wallet {
   id: string;

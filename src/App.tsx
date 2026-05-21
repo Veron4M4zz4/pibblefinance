@@ -10,6 +10,7 @@ import {
   getWallets,
   createWallet,
   deleteWallet,
+  updateWallet,
   getTransactions,
   createTransaction,
   deleteTransaction,
@@ -22,16 +23,17 @@ import DashboardCharts from "./components/DashboardCharts";
 import WalletForm from "./components/WalletForm";
 import TransactionForm from "./components/TransactionForm";
 import TransactionList from "./components/TransactionList";
-import FinancialHealth from "./components/FinancialHealth";
+import CoachPibble from "./components/CoachPibble";
 
 import {
-  History,
+  AlertTriangle,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  Edit3,
   LogOut,
   PiggyBank,
   Sparkles,
   Wallet as WalletIcon,
-  ArrowUpCircle,
-  ArrowDownCircle,
 } from "lucide-react";
 
 import { motion } from "motion/react";
@@ -39,7 +41,6 @@ import { motion } from "motion/react";
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-
   const [currentUser, setCurrentUser] = useState("");
 
   const [profile, setProfile] = useState<UserProfile>(() =>
@@ -54,20 +55,68 @@ export default function App() {
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
+  const [editingWallet, setEditingWallet] = useState<Wallet | null>(null);
+  const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null);
+  const [editWalletName, setEditWalletName] = useState("");
+  const [editWalletBalance, setEditWalletBalance] = useState("");
+
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "wallets" | "transactions"
   >("dashboard");
 
   const [userName, setUserName] = useState("");
-
   const [selectedCurrency, setSelectedCurrency] = useState<
     "BRL" | "USD" | "EUR"
   >("BRL");
+
+  function syncUserFromSession(session: Session | null) {
+    setSession(session);
+
+    if (session?.user) {
+      const name =
+        session.user.user_metadata?.full_name ||
+        session.user.user_metadata?.name ||
+        session.user.email ||
+        "Usuário";
+
+      setCurrentUser(name);
+      localStorage.setItem("pibblefinance:user", name);
+
+      setProfile((prev) => ({
+        ...prev,
+        name,
+      }));
+
+      return;
+    }
+
+    setCurrentUser("");
+  }
 
   useEffect(() => {
     let mounted = true;
 
     async function initAuth() {
+      setAuthLoading(true);
+
+      const isOAuthCallback = window.location.pathname === "/auth/callback";
+      const code = new URLSearchParams(window.location.search).get("code");
+
+      if (isOAuthCallback && code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+        if (error) {
+          console.error("Erro ao trocar code por session:", error.message);
+        }
+
+        if (!mounted) return;
+
+        syncUserFromSession(data.session);
+        window.history.replaceState({}, document.title, "/");
+        setAuthLoading(false);
+        return;
+      }
+
       const {
         data: { session },
         error,
@@ -79,25 +128,7 @@ export default function App() {
         console.error("Erro ao recuperar sessão:", error.message);
       }
 
-      setSession(session);
-
-      if (session?.user) {
-        const name =
-          session.user.user_metadata?.full_name ||
-          session.user.user_metadata?.name ||
-          session.user.email ||
-          "Usuário";
-
-        setCurrentUser(name);
-
-        setProfile((prev) => ({
-          ...prev,
-          name,
-        }));
-      } else {
-        setCurrentUser("");
-      }
-
+      syncUserFromSession(session);
       setAuthLoading(false);
     }
 
@@ -106,25 +137,7 @@ export default function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-
-      if (session?.user) {
-        const name =
-          session.user.user_metadata?.full_name ||
-          session.user.user_metadata?.name ||
-          session.user.email ||
-          "Usuário";
-
-        setCurrentUser(name);
-
-        setProfile((prev) => ({
-          ...prev,
-          name,
-        }));
-      } else {
-        setCurrentUser("");
-      }
-
+      syncUserFromSession(session);
       setAuthLoading(false);
     });
 
@@ -145,40 +158,85 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (!session?.user) return;
+    if (!session?.user && !currentUser) return;
 
     loadWallets();
     loadTransactions();
-  }, [session?.user?.id]);
+  }, [session?.user?.id, currentUser]);
 
   useEffect(() => {
     setStorageItem("pibblefinance:profile", profile);
   }, [profile]);
 
+  // Trava o scroll do body quando o modal de edição estiver aberto
+  useEffect(() => {
+    if (editingWallet || walletToDelete) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [editingWallet, walletToDelete]);
+
   const totals = useMemo(() => {
-    const walletTotal = wallets.reduce(
-      (acc, wallet) => acc + Number(wallet.balance || 0),
-      0
-    );
+    const getWalletType = (type?: string) => String(type || "").toLowerCase();
+
+    const isCreditWallet = (wallet: Wallet) =>
+      getWalletType(wallet.type) === "credit";
+
+    const walletById = wallets.reduce<Record<string, Wallet>>((acc, wallet) => {
+      acc[wallet.id] = wallet;
+      return acc;
+    }, {});
+
+    const getTransactionWalletId = (transaction: any) =>
+      transaction.walletId || transaction.wallet_id || "";
+
+    const realBalance = wallets
+      .filter((wallet) => !isCreditWallet(wallet))
+      .reduce((acc, wallet) => acc + Number(wallet.balance || 0), 0);
+
+    const creditAvailable = wallets
+      .filter((wallet) => isCreditWallet(wallet))
+      .reduce((acc, wallet) => acc + Number(wallet.balance || 0), 0);
 
     const income = transactions
       .filter((item) => item.type === "income")
       .reduce((acc, item) => acc + Number(item.amount || 0), 0);
 
-    const expense = transactions
-      .filter((item) => item.type === "expense")
+    const realExpense = transactions
+      .filter((item) => {
+        const wallet = walletById[getTransactionWalletId(item)];
+        return item.type === "expense" && !isCreditWallet(wallet);
+      })
       .reduce((acc, item) => acc + Number(item.amount || 0), 0);
 
-    const balance = walletTotal + income - expense;
+    const creditExpense = transactions
+      .filter((item) => {
+        const wallet = walletById[getTransactionWalletId(item)];
+        return item.type === "expense" && isCreditWallet(wallet);
+      })
+      .reduce((acc, item) => acc + Number(item.amount || 0), 0);
 
-    return { income, expense, balance };
+    const expense = realExpense + creditExpense;
+
+    return {
+      income,
+      expense,
+      realBalance,
+      creditAvailable,
+      realExpense,
+      creditExpense,
+    };
   }, [wallets, transactions]);
 
   async function handleGoogleLogin() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
 
@@ -199,6 +257,7 @@ export default function App() {
       joinedAt: new Date().toISOString(),
     };
 
+    localStorage.setItem("pibblefinance:user", trimmedName);
     setProfile(newProfile);
     setCurrentUser(trimmedName);
   }
@@ -211,6 +270,7 @@ export default function App() {
       joinedAt: new Date().toISOString(),
     };
 
+    localStorage.setItem("pibblefinance:user", "Verona Mazza");
     setProfile(seededProfile);
     setCurrentUser("Verona Mazza");
   }
@@ -222,6 +282,28 @@ export default function App() {
 
   async function handleDeleteWallet(walletId: string) {
     await deleteWallet(walletId);
+    await loadWallets();
+    await loadTransactions();
+  }
+
+  function handleStartEditWallet(wallet: Wallet) {
+    setEditingWallet(wallet);
+    setEditWalletName(wallet.name);
+    setEditWalletBalance(String(wallet.balance || 0));
+  }
+
+  async function handleSaveWalletEdit() {
+    if (!editingWallet || !editWalletName.trim()) return;
+
+    await updateWallet(editingWallet.id, {
+      name: editWalletName.trim(),
+      balance: Number(editWalletBalance || 0),
+    });
+
+    setEditingWallet(null);
+    setEditWalletName("");
+    setEditWalletBalance("");
+
     await loadWallets();
     await loadTransactions();
   }
@@ -291,9 +373,11 @@ export default function App() {
             className="rounded-3xl border border-slate-800 bg-slate-900/70 p-8 shadow-2xl backdrop-blur-xl"
           >
             <div className="mb-8 flex flex-col items-center text-center">
-              <div className="mb-3 rounded-2xl bg-indigo-600 p-3.5 text-white">
-                <PiggyBank size={28} />
-              </div>
+              <img
+                src="/logo-pibble.png"
+                alt="PibbleFinance"
+                className="h-10 w-10 rounded-2xl object-cover shadow-lg"
+              />
 
               <h1 className="mb-2 text-4xl font-black tracking-tight text-white">
                 Pibble<span className="text-indigo-400">Finance</span>
@@ -382,14 +466,21 @@ export default function App() {
     ? profile.name.charAt(0).toUpperCase()
     : currentUser.charAt(0).toUpperCase() || "P";
 
+  const googleAvatarUrl =
+    session?.user?.user_metadata?.avatar_url ||
+    session?.user?.user_metadata?.picture ||
+    "";
+
   return (
     <main className="min-h-screen bg-mesh-radial pb-12 text-slate-800">
-      <header className="sticky top-0 z-50 border-b border-slate-200/50 bg-white/55 px-6 py-4 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-slate-200/50 bg-white/70 px-6 py-4 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="rounded-2xl bg-indigo-600 p-2.5 text-white shadow-lg">
-              <PiggyBank size={20} />
-            </span>
+            <img
+              src="/logo-pibble.png"
+              alt="PibbleFinance"
+              className="h-10 w-10 rounded-2xl object-cover shadow-lg"
+            />
 
             <div>
               <span className="block text-xl font-black tracking-tight text-slate-900">
@@ -408,22 +499,33 @@ export default function App() {
               onChange={(event) =>
                 handleChangeCurrency(event.target.value as "BRL" | "USD" | "EUR")
               }
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 shadow-sm outline-none"
+              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm outline-none transition hover:border-indigo-300 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
             >
               <option value="BRL">BRL</option>
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
             </select>
 
-            <div
-              className={`flex h-9 w-9 items-center justify-center rounded-full border text-sm font-black shadow-sm ${avatarColors}`}
-            >
-              {firstLetter}
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-indigo-200 bg-indigo-100 shadow-sm">
+              {googleAvatarUrl ? (
+                <img
+                  src={googleAvatarUrl}
+                  alt={profile.name || currentUser || "Foto do usuário"}
+                  className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div
+                  className={`flex h-full w-full items-center justify-center text-sm font-black ${avatarColors}`}
+                >
+                  {firstLetter}
+                </div>
+              )}
             </div>
 
             <button
               onClick={handleLogout}
-              className="rounded-xl border p-2.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-500"
+              className="rounded-xl border border-slate-200 p-2.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-500"
               title="Sair"
             >
               <LogOut size={16} />
@@ -433,44 +535,73 @@ export default function App() {
       </header>
 
       <section className="mx-auto max-w-[1400px] px-6 pt-8">
-        <div className="mb-8 grid gap-4 md:grid-cols-3">
+        <div className="mb-8 grid gap-4 lg:grid-cols-4">
           <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-xl backdrop-blur-xl">
             <div className="mb-4 flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                Saldo total
+                Saldo disponível
               </span>
               <WalletIcon size={18} className="text-indigo-500" />
             </div>
 
             <strong className="text-3xl font-black text-slate-950">
-              {formatMoney(totals.balance, profile.currency)}
+              {formatMoney(totals.realBalance, profile.currency)}
             </strong>
+
+            <p className="mt-2 text-[11px] font-medium text-slate-400">
+              Débito, conta corrente, pix, dinheiro e investimentos.
+            </p>
           </div>
 
           <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-xl backdrop-blur-xl">
             <div className="mb-4 flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                Entradas
+                Crédito restante
               </span>
-              <ArrowUpCircle size={18} className="text-emerald-500" />
+              <WalletIcon size={18} className="text-violet-500" />
             </div>
 
-            <strong className="text-3xl font-black text-emerald-600">
-              {formatMoney(totals.income, profile.currency)}
+            <strong className="text-3xl font-black text-violet-600">
+              {formatMoney(totals.creditAvailable, profile.currency)}
             </strong>
+
+            <p className="mt-2 text-[11px] font-medium text-slate-400">
+              Limite disponível nas carteiras de crédito.
+            </p>
           </div>
 
           <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-xl backdrop-blur-xl">
             <div className="mb-4 flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                Saídas
+                Gasto no saldo
+              </span>
+              <ArrowDownCircle size={18} className="text-orange-500" />
+            </div>
+
+            <strong className="text-3xl font-black text-orange-600">
+              {formatMoney(totals.realExpense, profile.currency)}
+            </strong>
+
+            <p className="mt-2 text-[11px] font-medium text-slate-400">
+              Saídas em débito, conta corrente, pix e dinheiro.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-xl backdrop-blur-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                Gasto no crédito
               </span>
               <ArrowDownCircle size={18} className="text-rose-500" />
             </div>
 
             <strong className="text-3xl font-black text-rose-600">
-              {formatMoney(totals.expense, profile.currency)}
+              {formatMoney(totals.creditExpense, profile.currency)}
             </strong>
+
+            <p className="mt-2 text-[11px] font-medium text-slate-400">
+              Saídas lançadas em carteiras de crédito.
+            </p>
           </div>
         </div>
 
@@ -527,67 +658,111 @@ export default function App() {
             </div>
 
             <div className="space-y-6">
-              <FinancialHealth
-                balance={totals.balance}
-                income={totals.income}
-                expense={totals.expense}
+              <CoachPibble
+                wallets={wallets}
+                transactions={transactions}
                 currency={profile.currency}
               />
 
               <TransactionForm
                 wallets={wallets}
                 onAddTransaction={handleAddTransaction}
+                currency={profile.currency}
               />
             </div>
           </div>
         )}
 
         {activeTab === "wallets" && (
-          <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-            <WalletForm onAddWallet={handleAddWallet} />
+          <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+            <div className="min-w-0">
+              <WalletForm
+                currency={profile.currency}
+                onAddWallet={handleAddWallet}
+              />
+            </div>
 
-            <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-xl backdrop-blur-xl">
-              <h2 className="mb-5 text-lg font-black text-slate-950">
-                Minhas carteiras
-              </h2>
+            <div className="min-h-[560px] rounded-3xl border border-white/60 bg-white/80 p-8 shadow-xl backdrop-blur-xl">
+              <div className="mb-8 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-950">
+                    Minhas carteiras
+                  </h2>
 
-              <div className="grid gap-3">
-                {wallets.length === 0 && (
-                  <p className="text-sm text-slate-500">
-                    Nenhuma carteira cadastrada ainda.
+                  <p className="mt-1 text-sm text-slate-500">
+                    Gerencie suas contas, cartões e investimentos em um só lugar.
                   </p>
-                )}
+                </div>
 
-                {wallets.map((wallet) => (
-                  <div
-                    key={wallet.id}
-                    className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-4"
-                  >
-                    <div>
-                      <strong className="block text-sm text-slate-900">
-                        {wallet.name}
-                      </strong>
-
-                      <span className="text-xs text-slate-500">
-                        {wallet.type}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <strong className="text-sm text-slate-900">
-                        {formatMoney(wallet.balance, profile.currency)}
-                      </strong>
-
-                      <button
-                        onClick={() => handleDeleteWallet(wallet.id)}
-                        className="rounded-xl p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-500"
-                      >
-                        <History size={15} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                <span className="shrink-0 rounded-full bg-slate-100 px-4 py-2 text-xs font-bold text-slate-500">
+                  {wallets.length} cadastrada{wallets.length === 1 ? "" : "s"}
+                </span>
               </div>
+
+              {wallets.length === 0 ? (
+                <div className="flex min-h-[380px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50/70 text-center">
+                  <WalletIcon size={42} className="mb-4 text-slate-300" />
+
+                  <strong className="text-base font-black text-slate-800">
+                    Nenhuma carteira cadastrada
+                  </strong>
+
+                  <p className="mt-2 max-w-sm text-sm leading-6 text-slate-400">
+                    Cadastre sua primeira carteira para começar a acompanhar seus saldos.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-5 md:grid-cols-2">
+                  {wallets.map((wallet) => (
+                    <div
+                      key={wallet.id}
+                      className={`relative overflow-hidden rounded-3xl border bg-gradient-to-br p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${
+                        wallet.color ||
+                        "from-indigo-600 to-violet-800 text-white border-indigo-500"
+                      }`}
+                    >
+                      <div className="pointer-events-none absolute right-0 top-0 -mr-8 -mt-8 h-32 w-32 rounded-full bg-white/15 backdrop-blur-3xl" />
+
+                      <div className="relative mb-6 flex items-center justify-between">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-white shadow-sm backdrop-blur-md">
+                          <WalletIcon size={22} />
+                        </div>
+
+                        <button
+                          onClick={() => handleStartEditWallet(wallet)}
+                          className="rounded-xl border border-white/20 bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
+                          title="Editar carteira"
+                        >
+                          <Edit3 size={15} />
+                        </button>
+                      </div>
+
+                      <div className="relative">
+                        <strong className="block truncate text-lg font-black text-white">
+                          {wallet.name}
+                        </strong>
+
+                        <span className="mt-1 block text-xs font-bold uppercase tracking-widest text-white/70">
+                          {wallet.type}
+                        </span>
+
+                        <div className="mt-6 border-t border-white/15 pt-5">
+                          <span className="block text-xs font-bold uppercase tracking-widest text-white/70">
+                            Saldo atual
+                          </span>
+
+                          <strong className="mt-1 block text-3xl font-black text-white">
+                            {formatMoney(
+                              Number(wallet.balance || 0),
+                              profile.currency
+                            )}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -608,6 +783,233 @@ export default function App() {
           </div>
         )}
       </section>
+
+    {editingWallet && (
+  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/40 backdrop-blur-md p-4">
+    <motion.div
+      initial={{
+        opacity: 0,
+        scale: 0.96,
+        y: 12,
+      }}
+      animate={{
+        opacity: 1,
+        scale: 1,
+        y: 0,
+      }}
+      transition={{
+        duration: 0.2,
+        ease: "easeOut",
+      }}
+      className="w-full max-w-lg rounded-3xl border border-white/20 bg-white p-6 shadow-2xl"
+    >
+      <div className="mb-6">
+        <h3 className="text-3xl font-black tracking-tight text-slate-900">
+          Editar carteira
+        </h3>
+
+        <p className="mt-1 text-sm text-slate-500">
+          Atualize o nome e o saldo da carteira.
+        </p>
+      </div>
+
+      <div className="space-y-5">
+        <div>
+          <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
+            Nome da carteira
+          </label>
+
+          <input
+            type="text"
+            value={editWalletName}
+            onChange={(event) => setEditWalletName(event.target.value)}
+            className="
+              w-full
+              rounded-2xl
+              border
+              border-slate-200
+              bg-slate-50
+              px-4
+              py-3
+              text-sm
+              text-slate-900
+              outline-none
+              transition
+              focus:border-indigo-500
+              focus:bg-white
+            "
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
+            Saldo atual
+          </label>
+
+          <input
+            type="number"
+            value={editWalletBalance}
+            onChange={(event) => setEditWalletBalance(event.target.value)}
+            className="
+              w-full
+              rounded-2xl
+              border
+              border-slate-200
+              bg-slate-50
+              px-4
+              py-3
+              text-sm
+              text-slate-900
+              outline-none
+              transition
+              focus:border-indigo-500
+              focus:bg-white
+            "
+          />
+        </div>
+      </div>
+
+      <div className="mt-8 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            if (!editingWallet) return;
+            setWalletToDelete(editingWallet);
+          }}
+          className="
+            rounded-2xl
+            border
+            border-rose-200
+            bg-rose-50
+            px-4
+            py-3
+            text-sm
+            font-bold
+            text-rose-600
+            transition
+            hover:bg-rose-100
+          "
+        >
+          Deletar carteira
+        </button>
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setEditingWallet(null);
+              setEditWalletName("");
+              setEditWalletBalance("");
+            }}
+            className="
+              rounded-2xl
+              border
+              border-slate-200
+              bg-white
+              px-4
+              py-3
+              text-sm
+              font-bold
+              text-slate-500
+              transition
+              hover:bg-slate-50
+            "
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSaveWalletEdit}
+            className="
+              rounded-2xl
+              bg-slate-950
+              px-5
+              py-3
+              text-sm
+              font-bold
+              text-white
+              transition
+              hover:bg-slate-800
+            "
+          >
+            Salvar alterações
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  </div>
+)}
+      {walletToDelete && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-md">
+          <motion.div
+            initial={{
+              opacity: 0,
+              scale: 0.96,
+              y: 10,
+            }}
+            animate={{
+              opacity: 1,
+              scale: 1,
+              y: 0,
+            }}
+            transition={{
+              duration: 0.18,
+              ease: "easeOut",
+            }}
+            className="w-full max-w-md rounded-3xl border border-white/10 bg-white p-6 shadow-2xl"
+          >
+            <div className="mb-5 flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
+                <AlertTriangle size={22} />
+              </div>
+
+              <div>
+                <h3 className="text-xl font-black text-slate-900">
+                  Excluir carteira
+                </h3>
+
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  Você está prestes a remover a carteira{" "}
+                  <strong className="text-slate-900">
+                    “{walletToDelete.name}”
+                  </strong>.
+                </p>
+
+                <p className="mt-2 text-sm font-semibold text-rose-500">
+                  Essa ação não poderá ser desfeita.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setWalletToDelete(null)}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleDeleteWallet(walletToDelete.id);
+
+                  setWalletToDelete(null);
+                  setEditingWallet(null);
+                  setEditWalletName("");
+                  setEditWalletBalance("");
+                }}
+                className="rounded-2xl bg-rose-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-rose-500"
+              >
+                Excluir carteira
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
     </main>
   );
 }
