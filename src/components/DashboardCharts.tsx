@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import { useMemo, useState } from "react";
 import {
   ResponsiveContainer,
@@ -10,8 +5,8 @@ import {
   Pie,
   Cell,
   Tooltip,
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -28,8 +23,8 @@ import {
 } from "lucide-react";
 
 interface DashboardChartsProps {
-  transactions: Transaction[];
-  wallets: Wallet[];
+  transactions?: Transaction[];
+  wallets?: Wallet[];
   currency: "BRL" | "USD" | "EUR";
 }
 
@@ -68,9 +63,16 @@ function isCreditWallet(wallet?: Wallet) {
   return getWalletType(wallet?.type) === "credit";
 }
 
+function formatDateLabel(date: Date) {
+  return date.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
 export default function DashboardCharts({
-  transactions,
-  wallets,
+  transactions = [],
+  wallets = [],
   currency,
 }: DashboardChartsProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "categories">(
@@ -121,15 +123,38 @@ export default function DashboardCharts({
     };
   }, [wallets, transactions, walletById]);
 
-  const overviewData = [
-    {
-      name: "Resumo",
-      "Saldo disponível": financialOverview.realBalance,
-      "Crédito restante": financialOverview.creditAvailable,
-      "Gasto no saldo": financialOverview.realExpense,
-      "Gasto no crédito": financialOverview.creditExpense,
-    },
-  ];
+  const timelineData = useMemo(() => {
+    const days = Array.from({ length: 14 }, (_, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (13 - index));
+
+      return {
+        rawDate: date.toISOString().slice(0, 10),
+        date: formatDateLabel(date),
+        entradas: 0,
+        gastos: 0,
+      };
+    });
+
+    transactions.forEach((transaction) => {
+      const transactionDate = String(transaction.date || "").slice(0, 10);
+      const day = days.find((item) => item.rawDate === transactionDate);
+
+      if (!day) return;
+
+      const amount = Number(transaction.amount || 0);
+
+      if (transaction.type === "income") {
+        day.entradas += amount;
+      }
+
+      if (transaction.type === "expense") {
+        day.gastos += amount;
+      }
+    });
+
+    return days;
+  }, [transactions]);
 
   const expensesByCategory = useMemo(() => {
     const totals: Record<
@@ -158,42 +183,29 @@ export default function DashboardCharts({
         const isCredit = isCreditWallet(wallet);
         const amount = Number(transaction.amount || 0);
 
-        const color = isCredit ? COLORS.creditExpense : COLORS.realExpense;
-
         if (!totals[catName]) {
           totals[catName] = {
             name: catName,
             value: 0,
             creditValue: 0,
             realValue: 0,
-            color,
+            color: "#000",
           };
         }
 
         totals[catName].value += amount;
 
-        if (isCredit) {
-          totals[catName].creditValue += amount;
-        } else {
-          totals[catName].realValue += amount;
-        }
+        if (isCredit) totals[catName].creditValue += amount;
+        else totals[catName].realValue += amount;
       });
 
-    return Object.values(totals).sort((a, b) => b.value - a.value);
+    return Object.values(totals)
+      .sort((a, b) => b.value - a.value)
+      .map((item, index) => ({
+        ...item,
+        color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
+      }));
   }, [transactions, walletById]);
-
-  const pieData = [
-    {
-      name: "Gasto no saldo",
-      value: financialOverview.realExpense,
-      color: COLORS.realExpense,
-    },
-    {
-      name: "Gasto no crédito",
-      value: financialOverview.creditExpense,
-      color: COLORS.creditExpense,
-    },
-  ].filter((item) => item.value > 0);
 
   const hasExpenses = financialOverview.totalExpense > 0;
 
@@ -204,7 +216,6 @@ export default function DashboardCharts({
           <h3 className="font-display text-lg font-bold text-slate-900">
             Análise Financeira
           </h3>
-
           <p className="text-xs text-slate-500">
             Entenda seu dinheiro real separado do limite de crédito.
           </p>
@@ -238,177 +249,141 @@ export default function DashboardCharts({
       </div>
 
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
-          <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-indigo-500">
-            <WalletIcon size={14} />
-            Saldo
+        {[
+          ["Saldo", financialOverview.realBalance, COLORS.realBalance, WalletIcon],
+          ["Crédito", financialOverview.creditAvailable, COLORS.creditAvailable, CreditCard],
+          ["Gasto no saldo", financialOverview.realExpense, COLORS.realExpense, TrendingUp],
+          ["Gasto no crédito", financialOverview.creditExpense, COLORS.creditExpense, CreditCard],
+        ].map(([label, value, color, Icon]: any) => (
+          <div
+            key={label}
+            className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"
+          >
+            <div
+              className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
+              style={{ color }}
+            >
+              <Icon size={14} />
+              {label}
+            </div>
+
+            <strong className="block text-xl font-black text-slate-950">
+              {formatMoney(value, currency)}
+            </strong>
           </div>
-
-          <strong className="block text-xl font-black text-slate-950">
-            {formatMoney(financialOverview.realBalance, currency)}
-          </strong>
-
-          <p className="mt-1 text-[11px] text-slate-500">
-            Dinheiro disponível em conta, pix e débito.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-violet-100 bg-violet-50/60 p-4">
-          <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-violet-500">
-            <CreditCard size={14} />
-            Crédito
-          </div>
-
-          <strong className="block text-xl font-black text-violet-700">
-            {formatMoney(financialOverview.creditAvailable, currency)}
-          </strong>
-
-          <p className="mt-1 text-[11px] text-slate-500">
-            Limite restante nos cartões.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-orange-100 bg-orange-50/60 p-4">
-          <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-orange-500">
-            <TrendingUp size={14} />
-            Gasto no saldo
-          </div>
-
-          <strong className="block text-xl font-black text-orange-600">
-            {formatMoney(financialOverview.realExpense, currency)}
-          </strong>
-
-          <p className="mt-1 text-[11px] text-slate-500">
-            Saídas em débito, conta, pix e dinheiro.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-rose-100 bg-rose-50/60 p-4">
-          <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-rose-500">
-            <CreditCard size={14} />
-            Gasto no crédito
-          </div>
-
-          <strong className="block text-xl font-black text-rose-600">
-            {formatMoney(financialOverview.creditExpense, currency)}
-          </strong>
-
-          <p className="mt-1 text-[11px] text-slate-500">
-            Saídas feitas em cartões de crédito.
-          </p>
-        </div>
+        ))}
       </div>
 
-      <div className="h-[300px] w-full">
+      <div className="min-h-[380px] w-full overflow-hidden">
         {activeTab === "overview" ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={overviewData}
-              margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
-              barGap={10}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                stroke="#f1f5f9"
-              />
+          <div className="h-[360px] w-full rounded-3xl border border-slate-100 bg-slate-50/60 p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-black text-slate-900">
+                  Fluxo dos últimos 14 dias
+                </p>
+                <p className="text-xs text-slate-500">
+                  Entradas versus gastos no período.
+                </p>
+              </div>
 
-              <XAxis
-                dataKey="name"
-                fontSize={11}
-                stroke="#94a3b8"
-                axisLine={false}
-                tickLine={false}
-              />
+              <div className="flex gap-3 text-[11px] font-bold text-slate-500">
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  Entradas
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-orange-500" />
+                  Gastos
+                </span>
+              </div>
+            </div>
 
-              <YAxis
-                fontSize={10}
-                stroke="#94a3b8"
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(value: number) =>
-                  formatMoney(value, currency).split(",")[0]
-                }
-              />
+            <ResponsiveContainer width="100%" height="82%">
+              <LineChart
+                data={timelineData}
+                margin={{ top: 10, right: 12, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#e2e8f0"
+                />
 
-              <Tooltip
-                formatter={(value: number, name: string) => [
-                  formatMoney(value, currency),
-                  name,
-                ]}
-                contentStyle={{
-                  background: "#0f172a",
-                  border: "none",
-                  borderRadius: "14px",
-                  color: "#fff",
-                  fontSize: "12px",
-                }}
-              />
+                <XAxis
+                  dataKey="date"
+                  fontSize={10}
+                  stroke="#94a3b8"
+                  axisLine={false}
+                  tickLine={false}
+                />
 
-              <Bar
-  dataKey="value"
-  radius={[10, 10, 0, 0]}
->
-  {expensesByCategory.map((entry, index) => (
-    <Cell
-      key={`bar-${entry.name}`}
-      fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]}
-    />
-  ))}
-</Bar><Bar
-  dataKey="value"
-  radius={[10, 10, 0, 0]}
->
-  {expensesByCategory.map((entry, index) => (
-    <Cell
-      key={`bar-${entry.name}`}
-      fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]}
-    />
-  ))}
-</Bar>
-              <Bar
-                dataKey="Crédito restante"
-                fill={COLORS.creditAvailable}
-                radius={[10, 10, 0, 0]}
-                maxBarSize={54}
-              />
+                <YAxis
+                  fontSize={10}
+                  stroke="#94a3b8"
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(value: number) =>
+                    formatMoney(value, currency).split(",")[0]
+                  }
+                />
 
-              <Bar
-                dataKey="Gasto no saldo"
-                fill={COLORS.realExpense}
-                radius={[10, 10, 0, 0]}
-                maxBarSize={54}
-              />
+                <Tooltip
+                  formatter={(value: number, name: string) => [
+                    formatMoney(value, currency),
+                    name === "entradas" ? "Entradas" : "Gastos",
+                  ]}
+                  labelStyle={{ color: "#fff" }}
+                  contentStyle={{
+                    background: "#0f172a",
+                    border: "none",
+                    borderRadius: "14px",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
+                />
 
-              <Bar
-                dataKey="Gasto no crédito"
-                fill={COLORS.creditExpense}
-                radius={[10, 10, 0, 0]}
-                maxBarSize={54}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+                <Line
+                  type="monotone"
+                  dataKey="entradas"
+                  stroke={COLORS.income}
+                  strokeWidth={3}
+                  dot={{ r: 3, strokeWidth: 2 }}
+                  activeDot={{ r: 6 }}
+                />
+
+                <Line
+                  type="monotone"
+                  dataKey="gastos"
+                  stroke={COLORS.realExpense}
+                  strokeWidth={3}
+                  dot={{ r: 3, strokeWidth: 2 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         ) : hasExpenses ? (
-          <div className="grid h-full grid-cols-1 md:grid-cols-[0.9fr_1.1fr]">
-            <div className="relative flex h-full items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
+          <div className="grid min-h-[360px] grid-cols-1 gap-6 xl:grid-cols-[0.75fr_1.25fr]">
+            <div className="relative flex min-h-[320px] items-center justify-center">
+              <ResponsiveContainer width="100%" height={320}>
                 <PieChart>
-                 <Pie
-  data={expensesByCategory}
-  dataKey="value"
-  nameKey="name"
-  innerRadius={72}
-  outerRadius={108}
-  paddingAngle={4}
-  stroke="none"
->
-  {expensesByCategory.map((entry, index) => (
-    <Cell
-      key={`cell-${entry.name}`}
-      fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]}
-    />
-  ))}
-</Pie>
+                  <Pie
+                    data={expensesByCategory}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={72}
+                    outerRadius={108}
+                    paddingAngle={4}
+                    stroke="none"
+                  >
+                    {expensesByCategory.map((entry) => (
+                      <Cell key={`cell-${entry.name}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+
                   <Tooltip
                     formatter={(value: number, name: string) => [
                       formatMoney(value, currency),
@@ -425,43 +400,20 @@ export default function DashboardCharts({
                 </PieChart>
               </ResponsiveContainer>
 
-              <div className="absolute flex flex-col items-center justify-center text-center">
+              <div className="pointer-events-none absolute flex flex-col items-center justify-center text-center">
                 <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
                   Total gasto
                 </span>
-
                 <span className="mt-1 font-mono text-base font-black text-slate-900">
                   {formatMoney(financialOverview.totalExpense, currency)}
                 </span>
               </div>
             </div>
 
-            <div className="flex flex-col justify-center gap-2 overflow-y-auto px-2">
-              <div className="mb-2 grid grid-cols-2 gap-2">
-                <div className="rounded-2xl border border-orange-100 bg-orange-50 p-3">
-                  <span className="block text-[10px] font-bold uppercase tracking-widest text-orange-500">
-                    No saldo
-                  </span>
-                  <strong className="mt-1 block text-sm font-black text-orange-600">
-                    {formatMoney(financialOverview.realExpense, currency)}
-                  </strong>
-                </div>
-
-                <div className="rounded-2xl border border-rose-100 bg-rose-50 p-3">
-                  <span className="block text-[10px] font-bold uppercase tracking-widest text-rose-500">
-                    No crédito
-                  </span>
-                  <strong className="mt-1 block text-sm font-black text-rose-600">
-                    {formatMoney(financialOverview.creditExpense, currency)}
-                  </strong>
-                </div>
-              </div>
-
-              {expensesByCategory.slice(0, 6).map((item) => {
+            <div className="flex h-[320px] min-h-0 flex-col gap-2 overflow-y-auto pb-3 pr-3">
+              {expensesByCategory.map((item) => {
                 const percentage = financialOverview.totalExpense
-                  ? ((item.value / financialOverview.totalExpense) * 100).toFixed(
-                      1
-                    )
+                  ? ((item.value / financialOverview.totalExpense) * 100).toFixed(1)
                   : "0";
 
                 return (
@@ -470,26 +422,35 @@ export default function DashboardCharts({
                     className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3 transition hover:bg-white hover:shadow-xs"
                   >
                     <div className="mb-2 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
                         <span
-                          className="h-2.5 w-2.5 rounded-full"
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
                           style={{ backgroundColor: item.color }}
                         />
 
-                        <strong className="text-xs font-bold text-slate-800">
+                        <strong className="truncate text-xs font-bold text-slate-800">
                           {item.name}
                         </strong>
                       </div>
 
-                      <span className="font-mono text-xs font-bold text-slate-900">
+                      <span className="shrink-0 font-mono text-xs font-bold text-slate-900">
                         {formatMoney(item.value, currency)}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-[10px] text-slate-500">
-                      <span>{percentage}% dos gastos</span>
+                    <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-slate-200/70">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${percentage}%`,
+                          backgroundColor: item.color,
+                        }}
+                      />
+                    </div>
 
-                      <span>
+                    <div className="flex items-center justify-between gap-2 text-[10px] text-slate-500">
+                      <span>{percentage}% dos gastos</span>
+                      <span className="truncate text-right">
                         Saldo: {formatMoney(item.realValue, currency)} · Crédito:{" "}
                         {formatMoney(item.creditValue, currency)}
                       </span>
@@ -500,13 +461,11 @@ export default function DashboardCharts({
             </div>
           </div>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-100 bg-slate-50/50 text-slate-400">
+          <div className="flex h-[340px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-100 bg-slate-50/50 text-slate-400">
             <TrendingUp size={36} className="mb-2 text-indigo-400/50" />
-
             <p className="text-sm font-semibold text-slate-600">
               Sem gastos cadastrados
             </p>
-
             <p className="mt-1 px-4 text-center text-xs text-slate-500">
               Registre uma saída para visualizar a divisão entre saldo e crédito.
             </p>
