@@ -37,12 +37,90 @@ export interface FinancialSnapshot {
   mainInsight: FinancialInsight;
 }
 
-function isCreditWallet(wallet?: Wallet | null) {
+export interface WalletBalanceSummary {
+  walletById: Record<string, Wallet>;
+  totalBalance: number;
+  cashBalance: number;
+  creditRemaining: number;
+  income: number;
+  debitExpenses: number;
+  creditExpenses: number;
+  totalExpenses: number;
+  netCashFlow: number;
+  byType: Record<string, number>;
+}
+
+export function isCreditWallet(wallet?: Wallet | null) {
   return String(wallet?.type || "").toLowerCase() === "credit";
 }
 
-function getTransactionWalletId(transaction: Transaction) {
+export function getTransactionWalletId(transaction: Transaction) {
   return transaction.walletId || (transaction as any).wallet_id || "";
+}
+
+export function getTransactionToWalletId(transaction: Transaction) {
+  return transaction.toWalletId || (transaction as any).to_wallet_id || "";
+}
+
+export function buildWalletBalanceSummary(
+  wallets: Wallet[],
+  transactions: Transaction[] = []
+): WalletBalanceSummary {
+  const walletById = wallets.reduce<Record<string, Wallet>>((acc, wallet) => {
+    acc[wallet.id] = wallet;
+    return acc;
+  }, {});
+
+  const totalBalance = wallets.reduce(
+    (acc, wallet) => acc + Number(wallet.balance || 0),
+    0
+  );
+
+  const cashBalance = wallets
+    .filter((wallet) => !isCreditWallet(wallet))
+    .reduce((acc, wallet) => acc + Number(wallet.balance || 0), 0);
+
+  const creditRemaining = wallets
+    .filter((wallet) => isCreditWallet(wallet))
+    .reduce((acc, wallet) => acc + Number(wallet.balance || 0), 0);
+
+  const income = transactions
+    .filter((item) => item.type === "income")
+    .reduce((acc, item) => acc + Number(item.amount || 0), 0);
+
+  const creditExpenses = transactions
+    .filter((item) => {
+      const wallet = walletById[getTransactionWalletId(item)];
+      return item.type === "expense" && isCreditWallet(wallet);
+    })
+    .reduce((acc, item) => acc + Number(item.amount || 0), 0);
+
+  const debitExpenses = transactions
+    .filter((item) => {
+      const wallet = walletById[getTransactionWalletId(item)];
+      return item.type === "expense" && !isCreditWallet(wallet);
+    })
+    .reduce((acc, item) => acc + Number(item.amount || 0), 0);
+
+  const totalExpenses = creditExpenses + debitExpenses;
+  const byType = wallets.reduce<Record<string, number>>((acc, wallet) => {
+    const typeKey = String(wallet.type || "checking");
+    acc[typeKey] = (acc[typeKey] || 0) + Number(wallet.balance || 0);
+    return acc;
+  }, {});
+
+  return {
+    walletById,
+    totalBalance,
+    cashBalance,
+    creditRemaining,
+    income,
+    debitExpenses,
+    creditExpenses,
+    totalExpenses,
+    netCashFlow: income - totalExpenses,
+    byType,
+  };
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -83,39 +161,17 @@ export function buildFinancialSnapshot(
   wallets: Wallet[],
   transactions: Transaction[]
 ): FinancialSnapshot {
-  const walletById = wallets.reduce<Record<string, Wallet>>((acc, wallet) => {
-    acc[wallet.id] = wallet;
-    return acc;
-  }, {});
-
-  const cashBalance = wallets
-    .filter((wallet) => !isCreditWallet(wallet))
-    .reduce((acc, wallet) => acc + Number(wallet.balance || 0), 0);
-
-  const creditRemaining = wallets
-    .filter((wallet) => isCreditWallet(wallet))
-    .reduce((acc, wallet) => acc + Number(wallet.balance || 0), 0);
-
-  const income = transactions
-    .filter((item) => item.type === "income")
-    .reduce((acc, item) => acc + Number(item.amount || 0), 0);
-
-  const creditExpenses = transactions
-    .filter((item) => {
-      const wallet = walletById[getTransactionWalletId(item)];
-      return item.type === "expense" && isCreditWallet(wallet);
-    })
-    .reduce((acc, item) => acc + Number(item.amount || 0), 0);
-
-  const debitExpenses = transactions
-    .filter((item) => {
-      const wallet = walletById[getTransactionWalletId(item)];
-      return item.type === "expense" && !isCreditWallet(wallet);
-    })
-    .reduce((acc, item) => acc + Number(item.amount || 0), 0);
-
-  const totalExpenses = creditExpenses + debitExpenses;
-  const netCashFlow = income - totalExpenses;
+  const summary = buildWalletBalanceSummary(wallets, transactions);
+  const { walletById } = summary;
+  const {
+    cashBalance,
+    creditRemaining,
+    income,
+    debitExpenses,
+    creditExpenses,
+    totalExpenses,
+    netCashFlow,
+  } = summary;
 
   const today = new Date();
   const startOfToday = new Date(

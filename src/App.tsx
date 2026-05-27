@@ -18,7 +18,10 @@ import {
 
 import { AVATAR_COLORS } from "./utils/constants";
 import { formatMoney } from "./utils/formatMoney";
-import { buildFinancialSnapshot } from "./utils/financialSnapshot";
+import {
+  buildFinancialSnapshot,
+  buildWalletBalanceSummary,
+} from "./utils/financialSnapshot";
 import {
   resolveWalletAccentClass,
   resolveWalletThemeClass,
@@ -140,6 +143,84 @@ export default function App() {
     updatedAt: string;
     index: number;
   };
+  type WalletBalanceUpdate = {
+    walletId: string;
+    balance: number;
+  };
+
+  function applyWalletBalanceUpdates(
+    currentWallets: Wallet[],
+    updates: WalletBalanceUpdate[]
+  ) {
+    if (updates.length === 0) return currentWallets;
+
+    const updatesById = updates.reduce<Record<string, number>>((acc, update) => {
+      acc[update.walletId] = update.balance;
+      return acc;
+    }, {});
+
+    return currentWallets.map((wallet) =>
+      Object.prototype.hasOwnProperty.call(updatesById, wallet.id)
+        ? {
+            ...wallet,
+            balance: updatesById[wallet.id],
+          }
+        : wallet
+    );
+  }
+
+  function applyTransactionBalanceFallback(
+    currentWallets: Wallet[],
+    transaction: Pick<
+      Transaction,
+      "type" | "amount" | "walletId" | "toWalletId"
+    >,
+    direction: "add" | "delete",
+    skipWalletIds: string[] = []
+  ) {
+    const amount = Number(transaction.amount || 0);
+    if (!amount) return currentWallets;
+
+    const delta = direction === "add" ? 1 : -1;
+    const skippedIds = new Set(skipWalletIds);
+
+    return currentWallets.map((wallet) => {
+      if (skippedIds.has(wallet.id)) {
+        return wallet;
+      }
+
+      let nextBalance = Number(wallet.balance || 0);
+      let changed = false;
+
+      if (wallet.id === transaction.walletId) {
+        if (transaction.type === "expense") {
+          nextBalance -= amount * delta;
+          changed = true;
+        }
+
+        if (transaction.type === "income") {
+          nextBalance += amount * delta;
+          changed = true;
+        }
+
+        if (transaction.type === "transfer") {
+          nextBalance -= amount * delta;
+          changed = true;
+        }
+      }
+
+      if (
+        transaction.type === "transfer" &&
+        transaction.toWalletId &&
+        wallet.id === transaction.toWalletId
+      ) {
+        nextBalance += amount * delta;
+        changed = true;
+      }
+
+      return changed ? { ...wallet, balance: nextBalance } : wallet;
+    });
+  }
 
   function syncUserFromSession(session: Session | null) {
     setSession(session);
@@ -337,6 +418,7 @@ export default function App() {
         };
       }
     );
+    const balanceSummary = buildWalletBalanceSummary(wallets, transactions);
 
     const searchTerm = walletSearch.trim().toLowerCase();
 
@@ -374,26 +456,14 @@ export default function App() {
       return bDate - aDate;
     });
 
-    const totalsByType = normalizedWallets.reduce<Record<string, number>>(
-      (acc, wallet) => {
-        const typeKey = String(wallet.type || "checking");
-        acc[typeKey] = (acc[typeKey] || 0) + Number(wallet.balance || 0);
-        return acc;
-      },
-      {}
-    );
-
     return {
       wallets: sorted,
       totalCount: normalizedWallets.length,
       filteredCount: sorted.length,
-      totalBalance: normalizedWallets.reduce(
-        (acc, wallet) => acc + Number(wallet.balance || 0),
-        0
-      ),
-      byType: totalsByType,
+      totalBalance: balanceSummary.totalBalance,
+      byType: balanceSummary.byType,
     };
-  }, [wallets, walletSearch, walletSort, profile.currency]);
+  }, [wallets, transactions, walletSearch, walletSort, profile.currency]);
 
   async function handleGoogleLogin() {
     const { error } = await supabase.auth.signInWithOAuth({
@@ -472,15 +542,62 @@ export default function App() {
   }
 
   async function handleAddTransaction(newTransaction: Omit<Transaction, "id">) {
-    await createTransaction(newTransaction);
+    const result = await createTransaction(newTransaction);
     await loadTransactions();
     await loadWallets();
+
+    if (!result) return;
+
+    const walletUpdateIds = result?.walletUpdates?.map(
+      (update: WalletBalanceUpdate) => update.walletId
+    ) ?? [];
+
+    if (result?.walletUpdates?.length) {
+      setWallets((currentWallets) =>
+        applyWalletBalanceUpdates(currentWallets, result.walletUpdates)
+      );
+    }
+
+    setWallets((currentWallets) =>
+      applyTransactionBalanceFallback(
+        currentWallets,
+        newTransaction,
+        "add",
+        walletUpdateIds
+      )
+    );
   }
 
   async function handleDeleteTransaction(transactionId: string) {
-    await deleteTransaction(transactionId);
+    const transactionToRemove = transactions.find(
+      (transaction) => transaction.id === transactionId
+    );
+    const result = await deleteTransaction(transactionId);
     await loadTransactions();
     await loadWallets();
+
+    if (!result) return;
+
+    const walletUpdateIds = result?.walletUpdates?.map(
+      (update: WalletBalanceUpdate) => update.walletId
+    ) ?? [];
+
+    if (result?.walletUpdates?.length) {
+      setWallets((currentWallets) =>
+        applyWalletBalanceUpdates(currentWallets, result.walletUpdates)
+      );
+    }
+
+    if (transactionToRemove) {
+      setWallets((currentWallets) =>
+        applyTransactionBalanceFallback(
+          currentWallets,
+          transactionToRemove,
+          "delete",
+          walletUpdateIds
+        )
+      );
+    }
   }
 
   async function handleLogout() {

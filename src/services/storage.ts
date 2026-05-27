@@ -154,7 +154,7 @@ async function updateWalletBalance(
 
   if (walletError) {
     console.error(walletError);
-    return;
+    return null;
   }
 
   const currentBalance = Number(wallet?.balance || 0);
@@ -170,7 +170,13 @@ async function updateWalletBalance(
 
   if (updateError) {
     console.error(updateError);
+    return null;
   }
+
+  return {
+    walletId,
+    balance: newBalance,
+  };
 }
 
 export async function createTransaction(transaction: any) {
@@ -203,21 +209,48 @@ export async function createTransaction(transaction: any) {
   }
 
   const amount = Number(transaction.amount || 0);
+  const walletUpdates: Array<{ walletId: string; balance: number }> = [];
 
   if (transaction.type === "expense") {
-    await updateWalletBalance(transaction.walletId, amount, "subtract");
+    const update = await updateWalletBalance(
+      transaction.walletId,
+      amount,
+      "subtract"
+    );
+
+    if (update) walletUpdates.push(update);
   }
 
   if (transaction.type === "income") {
-    await updateWalletBalance(transaction.walletId, amount, "add");
+    const update = await updateWalletBalance(
+      transaction.walletId,
+      amount,
+      "add"
+    );
+
+    if (update) walletUpdates.push(update);
   }
 
   if (transaction.type === "transfer") {
-    await updateWalletBalance(transaction.walletId, amount, "subtract");
-    await updateWalletBalance(transaction.toWalletId, amount, "add");
+    const sourceUpdate = await updateWalletBalance(
+      transaction.walletId,
+      amount,
+      "subtract"
+    );
+    const targetUpdate = await updateWalletBalance(
+      transaction.toWalletId,
+      amount,
+      "add"
+    );
+
+    if (sourceUpdate) walletUpdates.push(sourceUpdate);
+    if (targetUpdate) walletUpdates.push(targetUpdate);
   }
 
-  return (data || []).map(normalizeTransactionRecord);
+  return {
+    transactions: (data || []).map(normalizeTransactionRecord),
+    walletUpdates,
+  };
 }
 
 export async function deleteTransaction(transactionId: string) {
@@ -249,22 +282,51 @@ export async function deleteTransaction(transactionId: string) {
   }
 
   const amount = Number(transaction?.amount || 0);
+  const walletUpdates: Array<{ walletId: string; balance: number }> = [];
 
   if (transaction.type === "expense") {
-    await updateWalletBalance(transaction.wallet_id, amount, "add");
+    const update = await updateWalletBalance(
+      transaction.wallet_id,
+      amount,
+      "add"
+    );
+
+    if (update) walletUpdates.push(update);
   }
 
   if (transaction.type === "income") {
-    await updateWalletBalance(transaction.wallet_id, amount, "subtract");
+    const update = await updateWalletBalance(
+      transaction.wallet_id,
+      amount,
+      "subtract"
+    );
+
+    if (update) walletUpdates.push(update);
   }
 
   if (transaction.type === "transfer") {
-    await updateWalletBalance(transaction.wallet_id, amount, "add");
+    const sourceUpdate = await updateWalletBalance(
+      transaction.wallet_id,
+      amount,
+      "add"
+    );
 
     if (transaction.to_wallet_id) {
-      await updateWalletBalance(transaction.to_wallet_id, amount, "subtract");
+      const targetUpdate = await updateWalletBalance(
+        transaction.to_wallet_id,
+        amount,
+        "subtract"
+      );
+
+      if (targetUpdate) walletUpdates.push(targetUpdate);
     }
+
+    if (sourceUpdate) walletUpdates.push(sourceUpdate);
   }
+
+  return {
+    walletUpdates,
+  };
 }
 
 export function getStorageItem<T>(key: string, defaultValue: T): T {

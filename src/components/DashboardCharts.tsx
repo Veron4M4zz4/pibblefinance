@@ -16,6 +16,11 @@ import { PRESET_CATEGORIES } from "../utils/constants";
 import { formatMoney } from "../utils/formatMoney";
 import { useTheme } from "../context/ThemeProvider";
 import {
+  buildWalletBalanceSummary,
+  getTransactionWalletId,
+  isCreditWallet,
+} from "../utils/financialSnapshot";
+import {
   PieChart as PieIcon,
   BarChart3,
   CreditCard,
@@ -51,18 +56,6 @@ const CATEGORY_COLORS = [
   "#06b6d4",
   "#3b82f6",
 ];
-
-function getWalletIdFromTransaction(transaction: any) {
-  return transaction.walletId || transaction.wallet_id || "";
-}
-
-function getWalletType(type?: string) {
-  return String(type || "").toLowerCase();
-}
-
-function isCreditWallet(wallet?: Wallet) {
-  return getWalletType(wallet?.type) === "credit";
-}
 
 function formatDateLabel(date: Date) {
   return date.toLocaleDateString("pt-BR", {
@@ -102,49 +95,10 @@ export default function DashboardCharts({
     ? "border-slate-200/80 bg-white/88 shadow-[0_16px_42px_rgba(15,23,42,0.08)]"
     : "border-white/10 bg-white/5";
 
-  const walletById = useMemo(() => {
-    return wallets.reduce<Record<string, Wallet>>((acc, wallet) => {
-      acc[wallet.id] = wallet;
-      return acc;
-    }, {});
-  }, [wallets]);
-
-  const financialOverview = useMemo(() => {
-    const realBalance = wallets
-      .filter((wallet) => !isCreditWallet(wallet))
-      .reduce((acc, wallet) => acc + Number(wallet.balance || 0), 0);
-
-    const creditAvailable = wallets
-      .filter((wallet) => isCreditWallet(wallet))
-      .reduce((acc, wallet) => acc + Number(wallet.balance || 0), 0);
-
-    const income = transactions
-      .filter((transaction) => transaction.type === "income")
-      .reduce((acc, transaction) => acc + Number(transaction.amount || 0), 0);
-
-    const realExpense = transactions
-      .filter((transaction) => {
-        const wallet = walletById[getWalletIdFromTransaction(transaction)];
-        return transaction.type === "expense" && !isCreditWallet(wallet);
-      })
-      .reduce((acc, transaction) => acc + Number(transaction.amount || 0), 0);
-
-    const creditExpense = transactions
-      .filter((transaction) => {
-        const wallet = walletById[getWalletIdFromTransaction(transaction)];
-        return transaction.type === "expense" && isCreditWallet(wallet);
-      })
-      .reduce((acc, transaction) => acc + Number(transaction.amount || 0), 0);
-
-    return {
-      realBalance,
-      creditAvailable,
-      income,
-      realExpense,
-      creditExpense,
-      totalExpense: realExpense + creditExpense,
-    };
-  }, [wallets, transactions, walletById]);
+  const financialOverview = useMemo(
+    () => buildWalletBalanceSummary(wallets, transactions),
+    [wallets, transactions]
+  );
 
   const timelineData = useMemo(() => {
     const days = Array.from({ length: 14 }, (_, index) => {
@@ -202,7 +156,7 @@ export default function DashboardCharts({
         );
 
         const catName = categoryObj ? categoryObj.name : transaction.category;
-        const wallet = walletById[getWalletIdFromTransaction(transaction)];
+        const wallet = financialOverview.walletById[getTransactionWalletId(transaction)];
         const isCredit = isCreditWallet(wallet);
         const amount = Number(transaction.amount || 0);
 
@@ -227,7 +181,7 @@ export default function DashboardCharts({
         ...item,
         color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
       }));
-  }, [transactions, walletById]);
+  }, [transactions, financialOverview.walletById]);
 
   const simpleReading = useMemo(() => {
     const last7 = timelineData.slice(-7);
@@ -250,10 +204,10 @@ export default function DashboardCharts({
       0
     );
 
-    const totalExpense = financialOverview.totalExpense;
+    const totalExpense = financialOverview.totalExpenses;
     const creditShare =
       totalExpense > 0
-        ? Math.round((financialOverview.creditExpense / totalExpense) * 100)
+        ? Math.round((financialOverview.creditExpenses / totalExpense) * 100)
         : 0;
 
     return {
@@ -261,15 +215,15 @@ export default function DashboardCharts({
       expenseTrend: formatTrendSummary(last7Expenses, prev7Expenses),
       creditShare,
       balanceNote:
-        financialOverview.totalExpense > financialOverview.income
+        financialOverview.totalExpenses > financialOverview.income
           ? "Os gastos já passaram das entradas"
-          : financialOverview.totalExpense > 0
+          : financialOverview.totalExpenses > 0
           ? "Os gastos ainda estão abaixo das entradas"
           : "Ainda não há gastos registrados",
     };
   }, [financialOverview, timelineData]);
 
-  const hasExpenses = financialOverview.totalExpense > 0;
+  const hasExpenses = financialOverview.totalExpenses > 0;
 
   return (
     <div className="card-premium rounded-[28px] p-6">
@@ -358,25 +312,25 @@ export default function DashboardCharts({
         {[
           [
             "Dinheiro disponível",
-            financialOverview.realBalance,
+            financialOverview.cashBalance,
             COLORS.realBalance,
             WalletIcon,
           ],
           [
             "Limite livre",
-            financialOverview.creditAvailable,
+            financialOverview.creditRemaining,
             COLORS.creditAvailable,
             CreditCard,
           ],
           [
             "Gasto no dinheiro",
-            financialOverview.realExpense,
+            financialOverview.debitExpenses,
             COLORS.realExpense,
             TrendingUp,
           ],
           [
             "Gasto no cartão",
-            financialOverview.creditExpense,
+            financialOverview.creditExpenses,
             COLORS.creditExpense,
             CreditCard,
           ],
@@ -534,15 +488,15 @@ export default function DashboardCharts({
                   Total gasto
                 </span>
                 <span className="mt-1 font-mono text-base text-ui-value">
-                  {formatMoney(financialOverview.totalExpense, currency)}
+                  {formatMoney(financialOverview.totalExpenses, currency)}
                 </span>
               </div>
             </div>
 
             <div className="flex h-[320px] min-h-0 flex-col gap-2 overflow-y-auto pb-3 pr-3">
               {expensesByCategory.map((item) => {
-                const percentage = financialOverview.totalExpense
-                  ? ((item.value / financialOverview.totalExpense) * 100).toFixed(1)
+                const percentage = financialOverview.totalExpenses
+                  ? ((item.value / financialOverview.totalExpenses) * 100).toFixed(1)
                   : "0";
 
                 return (

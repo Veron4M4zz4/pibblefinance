@@ -20,6 +20,10 @@ import type { Transaction, Wallet } from "../types";
 import { PRESET_CATEGORIES } from "../utils/constants";
 import { formatDate, formatMoney } from "../utils/formatMoney";
 import { useTheme } from "../context/ThemeProvider";
+import {
+  getTransactionToWalletId,
+  getTransactionWalletId,
+} from "../utils/financialSnapshot";
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -30,14 +34,6 @@ interface TransactionListProps {
 
 type TypeFilter = "all" | "income" | "expense" | "transfer";
 type PeriodFilter = "all" | "today" | "week" | "month";
-
-function getTransactionWalletId(transaction: Transaction) {
-  return transaction.walletId || (transaction as any).wallet_id || "";
-}
-
-function getTransactionToWalletId(transaction: Transaction) {
-  return transaction.toWalletId || (transaction as any).to_wallet_id || "";
-}
 
 function getTransactionCategory(transaction: Transaction) {
   return String(transaction.category || "");
