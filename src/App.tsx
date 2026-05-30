@@ -13,6 +13,7 @@ import {
   updateWallet,
   getTransactions,
   createTransaction,
+  updateTransactionDate,
   deleteTransaction,
 } from "./services/storage";
 
@@ -22,6 +23,7 @@ import {
   buildFinancialSnapshot,
   buildWalletBalanceSummary,
 } from "./utils/financialSnapshot";
+import { parseLocalDateValue } from "./utils/date";
 import WalletColorPicker from "./components/WalletColorPicker";
 import {
   getWalletColorIndex,
@@ -108,6 +110,11 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState("");
+  const [authStatus, setAuthStatus] = useState<{
+    type: "idle" | "loading" | "error";
+    message: string;
+  }>({ type: "idle", message: "" });
+  const [isGoogleLoginLoading, setIsGoogleLoginLoading] = useState(false);
 
   const [profile, setProfile] = useState<UserProfile>(() =>
     getStorageItem("pibblefinance:profile", {
@@ -236,6 +243,8 @@ export default function App() {
     setSession(session);
 
     if (session?.user) {
+      setIsGoogleLoginLoading(false);
+      setAuthStatus({ type: "idle", message: "" });
       const name =
         session.user.user_metadata?.full_name ||
         session.user.user_metadata?.name ||
@@ -254,6 +263,7 @@ export default function App() {
     }
 
     setCurrentUser("");
+    setIsGoogleLoginLoading(false);
   }
 
   useEffect(() => {
@@ -476,6 +486,9 @@ export default function App() {
   }, [wallets, transactions, walletSearch, walletSort, profile.currency]);
 
   async function handleGoogleLogin() {
+    setAuthStatus({ type: "loading", message: "Abrindo login com Google..." });
+    setIsGoogleLoginLoading(true);
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -485,11 +498,21 @@ export default function App() {
 
     if (error) {
       console.error("Erro ao entrar com Google:", error.message);
+      setIsGoogleLoginLoading(false);
+      setAuthStatus({
+        type: "error",
+        message:
+          "Não foi possível entrar com Google agora. Verifique sua conexão e tente novamente.",
+      });
+      return;
     }
   }
 
   function handleLogin() {
     if (!userName.trim()) return;
+
+    setAuthStatus({ type: "idle", message: "" });
+    setIsGoogleLoginLoading(false);
 
     const trimmedName = userName.trim();
 
@@ -506,6 +529,9 @@ export default function App() {
   }
 
   function handleSeedMockData() {
+    setAuthStatus({ type: "idle", message: "" });
+    setIsGoogleLoginLoading(false);
+
     const seededProfile: UserProfile = {
       name: "Verona Mazza",
       currency: "BRL",
@@ -639,6 +665,39 @@ export default function App() {
     }
   }
 
+  async function handleEditTransactionDate(
+    transactionId: string,
+    date: string
+  ) {
+    const result = await updateTransactionDate(transactionId, date);
+
+    if (!result) return false;
+
+    const updatedTransaction = result.transactions?.[0];
+
+    if (updatedTransaction) {
+      setTransactions((currentTransactions) => {
+        const updatedTransactions = currentTransactions.map((transaction) =>
+          transaction.id === updatedTransaction.id
+            ? {
+                ...transaction,
+                ...updatedTransaction,
+              }
+            : transaction
+        );
+
+        return [...updatedTransactions].sort((a, b) => {
+          const aTime = parseLocalDateValue(a.date)?.getTime() || 0;
+          const bTime = parseLocalDateValue(b.date)?.getTime() || 0;
+
+          return bTime - aTime;
+        });
+      });
+    }
+
+    return true;
+  }
+
   async function handleLogout() {
     setAuthLoading(true);
 
@@ -735,17 +794,41 @@ export default function App() {
             </div>
 
             <div className="space-y-5">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                  Entrar com sua conta
+                </p>
+                {authStatus.type === "error" ? (
+                  <div className="mt-3 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                    {authStatus.message}
+                  </div>
+                ) : authStatus.type === "loading" ? (
+                  <div className="mt-3 rounded-2xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-200">
+                    {authStatus.message}
+                  </div>
+                ) : null}
+              </div>
               <button
+                type="button"
                 onClick={handleGoogleLogin}
-                className="w-full rounded-xl bg-white py-3.5 text-xs font-bold text-slate-900 transition hover:bg-slate-100"
+                disabled={isGoogleLoginLoading}
+                className="flex w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white px-4 py-3.5 text-sm font-bold text-slate-900 shadow-[0_12px_30px_rgba(255,255,255,0.08)] transition hover:-translate-y-0.5 hover:bg-slate-100 disabled:cursor-wait disabled:opacity-70"
               >
-                Entrar com Google
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+                    <path fill="#EA4335" d="M12 10.2v3.9h5.4c-.2 1.4-1.7 4.1-5.4 4.1-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.2.8 4 1.5l2.7-2.6C16.7 3.7 14.6 3 12 3 6.9 3 2.7 7.1 2.7 12S6.9 21 12 21c5.4 0 9-3.8 9-9 0-.6-.1-1.1-.2-1.8H12z"/>
+                    <path fill="#4285F4" d="M21 12c0-.6-.1-1.1-.2-1.8H12v3.9h5.4c-.3 1.8-1.8 3.2-3.4 3.8l-.1.1 2.6 2c1.5-1.4 2.5-3.6 2.5-6z"/>
+                    <path fill="#FBBC05" d="M5.1 14.3c-.4-1-.7-2-.7-3.1s.2-2.1.7-3.1l-2.6-2C2 7.8 1.5 9.8 1.5 12s.5 4.2 1.9 5.9l2.6-2c-.5-.9-.9-1.8-.9-2.9z"/>
+                    <path fill="#34A853" d="M12 5.9c1.3 0 2.5.5 3.4 1.3l2.5-2.5C16.5 3.1 14.4 2.3 12 2.3 8.3 2.3 5 4.5 3.2 7.8l2.6 2C6.4 7.4 8.9 5.9 12 5.9z"/>
+                  </svg>
+                </span>
+                <span>{isGoogleLoginLoading ? "Conectando..." : "Entrar com Google"}</span>
               </button>
 
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 bg-slate-800" />
                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                  ou modo local
+                  ou usar modo local
                 </span>
                 <div className="h-px flex-1 bg-slate-800" />
               </div>
@@ -1179,6 +1262,7 @@ export default function App() {
                 wallets={wallets}
                 currency={profile.currency}
                 onDeleteTransaction={handleDeleteTransaction}
+                onEditTransactionDate={handleEditTransactionDate}
               />
             </>
           )}
@@ -1565,6 +1649,7 @@ export default function App() {
                 wallets={wallets}
                 currency={profile.currency}
                 onDeleteTransaction={handleDeleteTransaction}
+                onEditTransactionDate={handleEditTransactionDate}
               />
             </div>
 
@@ -1810,6 +1895,7 @@ export default function App() {
               wallets={wallets}
               currency={profile.currency}
               onDeleteTransaction={handleDeleteTransaction}
+              onEditTransactionDate={handleEditTransactionDate}
             />
           </div>
         )}

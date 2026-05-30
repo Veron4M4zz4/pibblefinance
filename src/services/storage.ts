@@ -14,6 +14,15 @@ function normalizeWalletRecord(wallet: any) {
 }
 
 function normalizeTransactionRecord(transaction: any) {
+  const normalizedDate = normalizeLocalDateValue(transaction?.date);
+  const dateEditedValue = Boolean(
+    transaction?.dateEdited ?? transaction?.date_edited ?? false
+  );
+  const originalDateValue =
+    normalizeLocalDateValue(
+      transaction?.originalDate || transaction?.original_date
+    ) || (dateEditedValue ? normalizedDate : "");
+
   return {
     ...transaction,
     walletId: transaction?.walletId || transaction?.wallet_id || "",
@@ -22,7 +31,10 @@ function normalizeTransactionRecord(transaction: any) {
     category: transaction?.category || "",
     type: transaction?.type || "expense",
     amount: Number(transaction?.amount || 0),
-    date: normalizeLocalDateValue(transaction?.date) || formatLocalDateInputValue(),
+    date: normalizedDate || formatLocalDateInputValue(),
+    originalDate: originalDateValue,
+    editedAt: transaction?.editedAt || transaction?.edited_at || "",
+    dateEdited: dateEditedValue,
   };
 }
 
@@ -185,6 +197,9 @@ export async function createTransaction(transaction: any) {
 
   if (!userId) return null;
 
+  const normalizedDate =
+    normalizeLocalDateValue(transaction?.date) || formatLocalDateInputValue();
+
   const transactionPayload: any = {
     user_id: userId,
     wallet_id: transaction.walletId,
@@ -192,7 +207,10 @@ export async function createTransaction(transaction: any) {
     amount: Number(transaction.amount || 0),
     category: transaction.category,
     description: transaction.description,
-    date: transaction.date,
+    date: normalizedDate,
+    original_date: normalizedDate,
+    date_edited: false,
+    edited_at: null,
   };
 
   if (transaction.type === "transfer") {
@@ -251,6 +269,67 @@ export async function createTransaction(transaction: any) {
   return {
     transactions: (data || []).map(normalizeTransactionRecord),
     walletUpdates,
+  };
+}
+
+export async function updateTransactionDate(
+  transactionId: string,
+  date: string
+) {
+  const userId = await getCurrentUserId();
+
+  if (!userId) return null;
+
+  const normalizedDate = normalizeLocalDateValue(date);
+
+  if (!normalizedDate) return null;
+
+  const { data: currentTransaction, error: fetchError } = await supabase
+    .from("transactions")
+    .select("id, date, original_date, date_edited, edited_at")
+    .eq("id", transactionId)
+    .eq("user_id", userId)
+    .single();
+
+  if (fetchError) {
+    console.error(fetchError);
+    return null;
+  }
+
+  const currentDate =
+    normalizeLocalDateValue(currentTransaction?.date) ||
+    formatLocalDateInputValue();
+
+  if (currentDate === normalizedDate) {
+    return {
+      transactions: [normalizeTransactionRecord(currentTransaction)],
+    };
+  }
+
+  const originalDate =
+    normalizeLocalDateValue(
+      currentTransaction?.original_date || currentTransaction?.date
+    ) || normalizedDate;
+
+  const { data, error } = await supabase
+    .from("transactions")
+    .update({
+      date: normalizedDate,
+      original_date: originalDate,
+      date_edited: true,
+      edited_at: new Date().toISOString(),
+    })
+    .eq("id", transactionId)
+    .eq("user_id", userId)
+    .select();
+
+  if (error) {
+    console.error(error);
+    return null;
+  }
+
+  return {
+    transactions: (data || []).map(normalizeTransactionRecord),
   };
 }
 

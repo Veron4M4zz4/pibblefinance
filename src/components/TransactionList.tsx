@@ -8,6 +8,9 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  CalendarDays,
+  Check,
+  Pencil,
   FileSpreadsheet,
   RefreshCw,
   Search,
@@ -26,6 +29,8 @@ import {
 } from "../utils/financialSnapshot";
 import {
   formatLocalDateInputValue,
+  formatLocalDateTimeLabel,
+  normalizeLocalDateValue,
   parseLocalDateValue,
 } from "../utils/date";
 
@@ -33,6 +38,10 @@ interface TransactionListProps {
   transactions: Transaction[];
   wallets: Wallet[];
   onDeleteTransaction: (id: string) => void;
+  onEditTransactionDate: (
+    id: string,
+    date: string
+  ) => Promise<boolean> | boolean;
   currency: "BRL" | "USD" | "EUR";
 }
 
@@ -90,6 +99,7 @@ export default function TransactionList({
   transactions,
   wallets,
   onDeleteTransaction,
+  onEditTransactionDate,
   currency,
 }: TransactionListProps) {
   const { resolvedTheme } = useTheme();
@@ -100,6 +110,12 @@ export default function TransactionList({
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("all");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [copiedState, setCopiedState] = useState<"idle" | "copied">("idle");
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editDateValue, setEditDateValue] = useState("");
+  const [editStatus, setEditStatus] = useState<{
+    type: "idle" | "saving" | "saved" | "error";
+    message: string;
+  }>({ type: "idle", message: "" });
 
   const walletMap = useMemo(() => {
     return wallets.reduce<Record<string, Wallet>>((acc, wallet) => {
@@ -107,6 +123,78 @@ export default function TransactionList({
       return acc;
     }, {});
   }, [wallets]);
+
+  function openTransactionDateEditor(transaction: Transaction) {
+    const normalizedDate =
+      normalizeLocalDateValue(transaction.date) || formatLocalDateInputValue();
+
+    setEditingTransaction(transaction);
+    setEditDateValue(normalizedDate);
+    setEditStatus({ type: "idle", message: "" });
+  }
+
+  function closeTransactionDateEditor() {
+    setEditingTransaction(null);
+    setEditDateValue("");
+    setEditStatus({ type: "idle", message: "" });
+  }
+
+  async function handleSaveTransactionDate() {
+    if (!editingTransaction) return;
+
+    const normalizedDate = normalizeLocalDateValue(editDateValue);
+
+    if (!normalizedDate) {
+      setEditStatus({
+        type: "error",
+        message: "Selecione uma data válida antes de salvar.",
+      });
+      return;
+    }
+
+    const currentDate =
+      normalizeLocalDateValue(editingTransaction.date) || normalizedDate;
+
+    if (currentDate === normalizedDate) {
+      setEditStatus({
+        type: "saved",
+        message: "A data escolhida já estava aplicada.",
+      });
+
+      window.setTimeout(() => {
+        closeTransactionDateEditor();
+      }, 650);
+
+      return;
+    }
+
+    setEditStatus({
+      type: "saving",
+      message: "Atualizando a data do lançamento...",
+    });
+
+    const saved = await onEditTransactionDate(
+      editingTransaction.id,
+      normalizedDate
+    );
+
+    if (!saved) {
+      setEditStatus({
+        type: "error",
+        message: "Não foi possível salvar a nova data agora.",
+      });
+      return;
+    }
+
+    setEditStatus({
+      type: "saved",
+      message: "Data atualizada com sucesso.",
+    });
+
+    window.setTimeout(() => {
+      closeTransactionDateEditor();
+    }, 850);
+  }
 
   const filteredTransactions = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -518,6 +606,32 @@ export default function TransactionList({
                         <span className="mx-1">•</span>
                         <span>{formatDate(getTransactionDate(transaction))}</span>
                       </p>
+                      {transaction.dateEdited ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${isLight ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-indigo-400/20 bg-indigo-500/10 text-indigo-200"}`}>
+                            <Check size={11} />
+                            Data editada
+                          </span>
+
+                          {transaction.originalDate ? (
+                            <span className={`text-[11px] leading-5 ${isLight ? "text-slate-500" : "text-slate-500"}`}>
+                              Originalmente em{" "}
+                              <strong className={isLight ? "text-slate-700" : "text-slate-300"}>
+                                {formatDate(transaction.originalDate)}
+                              </strong>
+                              {transaction.editedAt ? (
+                                <>
+                                  {" "}
+                                  • Editado em{" "}
+                                  <strong className={isLight ? "text-slate-700" : "text-slate-300"}>
+                                    {formatLocalDateTimeLabel(transaction.editedAt)}
+                                  </strong>
+                                </>
+                              ) : null}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 
@@ -541,6 +655,19 @@ export default function TransactionList({
 
                     <button
                       type="button"
+                      onClick={() => openTransactionDateEditor(transaction)}
+                      className={`rounded-xl border p-2 transition ${
+                        isLight
+                          ? "border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                          : "border-white/10 bg-white/6 text-slate-400 hover:border-indigo-400/30 hover:bg-indigo-500/10 hover:text-indigo-200"
+                      }`}
+                      title="Editar data do lançamento"
+                    >
+                      <Pencil size={13} />
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => onDeleteTransaction(transaction.id)}
                       className={`rounded-xl border p-2 transition ${
                         isLight
@@ -558,6 +685,220 @@ export default function TransactionList({
           </AnimatePresence>
         )}
       </div>
+
+      <AnimatePresence>
+        {editingTransaction ? (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className={`w-full max-w-2xl overflow-hidden rounded-[32px] border shadow-2xl ${
+                isLight
+                  ? "border-slate-200 bg-white"
+                  : "border-white/10 bg-slate-950/95"
+              }`}
+            >
+              <div className="grid gap-0 md:grid-cols-[1.1fr_0.9fr]">
+                <div className="p-6 md:p-7">
+                  <div className="mb-5">
+                    <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-200">
+                      <CalendarDays size={12} />
+                      Editar data do lançamento
+                    </div>
+                    <h3 className={`text-2xl font-black tracking-tight ${isLight ? "text-slate-950" : "text-white"}`}>
+                      {editingTransaction.description || "Lançamento sem título"}
+                    </h3>
+                    <p className={`mt-2 text-sm leading-6 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
+                      Ajuste apenas a data. O restante do lançamento permanece intacto.
+                    </p>
+                  </div>
+
+                  <div
+                    className={`mb-5 rounded-2xl border px-4 py-3 text-sm ${
+                      editStatus.type === "error"
+                        ? "border-rose-400/20 bg-rose-500/10 text-rose-200"
+                        : editStatus.type === "saved"
+                        ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+                        : "border-white/10 bg-white/5 text-slate-300"
+                    }`}
+                  >
+                    {editStatus.message || "Escolha a nova data e salve para atualizar o histórico."}
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className={`rounded-2xl border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                        Tipo
+                      </span>
+                      <strong className="mt-1 block text-sm font-black text-slate-900 dark:text-white">
+                        {editingTransaction.type === "income"
+                          ? "Entrada"
+                          : editingTransaction.type === "expense"
+                          ? "Saída"
+                          : "Transferência"}
+                      </strong>
+                    </div>
+
+                    <div className={`rounded-2xl border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                        Valor
+                      </span>
+                      <strong className="mt-1 block text-sm font-black text-slate-900 dark:text-white tabular-nums">
+                        {formatMoney(editingTransaction.amount, currency)}
+                      </strong>
+                    </div>
+
+                    <div className={`rounded-2xl border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                        Data atual
+                      </span>
+                      <strong className="mt-1 block text-sm font-black text-slate-900 dark:text-white">
+                        {formatDate(editingTransaction.date)}
+                      </strong>
+                    </div>
+
+                    <div className={`rounded-2xl border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                        Original
+                      </span>
+                      <strong className="mt-1 block text-sm font-black text-slate-900 dark:text-white">
+                        {editingTransaction.dateEdited && editingTransaction.originalDate
+                          ? formatDate(editingTransaction.originalDate)
+                          : "Ainda não editada"}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {editingTransaction.dateEdited && editingTransaction.editedAt ? (
+                    <p className="mt-4 text-xs leading-6 text-slate-500">
+                      Editado em{" "}
+                      <strong className={isLight ? "text-slate-700" : "text-slate-300"}>
+                        {formatLocalDateTimeLabel(editingTransaction.editedAt)}
+                      </strong>
+                    </p>
+                  ) : null}
+
+                  <div className="mt-6">
+                    <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                      Nova data
+                    </label>
+                    <input
+                      type="date"
+                      value={editDateValue}
+                      onChange={(e) => setEditDateValue(e.target.value)}
+                      className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none transition ${
+                        isLight
+                          ? "border-slate-200 bg-white text-slate-900 focus:border-indigo-400/40"
+                          : "border-white/10 bg-slate-950 text-white focus:border-indigo-400/40"
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div
+                  className={`border-t p-6 md:border-l md:border-t-0 md:p-7 ${
+                    isLight
+                      ? "border-slate-200 bg-slate-50/80"
+                      : "border-white/10 bg-slate-950/80"
+                  }`}
+                >
+                  <div className="mb-4">
+                    <h4 className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">
+                      Prévia do histórico
+                    </h4>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                      A nova data será exibida imediatamente no histórico e nos resumos.
+                    </p>
+                  </div>
+
+                  <div
+                    className={`rounded-[28px] border p-5 shadow-[0_18px_48px_rgba(15,23,42,0.18)] ${
+                      isLight
+                        ? "border-slate-200 bg-white"
+                        : "border-white/10 bg-white/5"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <strong className={`text-base font-black ${isLight ? "text-slate-950" : "text-white"}`}>
+                            {editingTransaction.description || "Lançamento"}
+                          </strong>
+                          {editingTransaction.dateEdited ? (
+                            <span className="rounded-full border border-indigo-400/20 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-200">
+                              Editado
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className={`mt-1 text-sm leading-6 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
+                          {editingTransaction.type === "transfer"
+                            ? "Transferência"
+                            : editingTransaction.type === "income"
+                            ? "Entrada"
+                            : "Saída"}
+                        </p>
+                      </div>
+
+                      <div className={`rounded-2xl border px-3 py-2 text-sm font-bold tabular-nums ${isLight ? "border-slate-200 bg-slate-50 text-slate-900" : "border-white/10 bg-white/6 text-white"}`}>
+                        {formatMoney(editingTransaction.amount, currency)}
+                      </div>
+                    </div>
+
+                    <div className={`mt-5 border-t pt-4 ${isLight ? "border-slate-200" : "border-white/10"}`}>
+                      <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                        Data prevista
+                      </span>
+                      <strong className="mt-1 block text-2xl font-black tracking-tight text-ui-title">
+                        {formatDate(editDateValue || editingTransaction.date)}
+                      </strong>
+                    </div>
+
+                    {editingTransaction.dateEdited && editingTransaction.originalDate ? (
+                      <p className="mt-3 text-xs leading-6 text-slate-500">
+                        Originalmente em{" "}
+                        <strong className={isLight ? "text-slate-700" : "text-slate-300"}>
+                          {formatDate(editingTransaction.originalDate)}
+                        </strong>
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-6 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={closeTransactionDateEditor}
+                      className={`rounded-2xl border px-4 py-3 text-sm font-bold transition ${
+                        isLight
+                          ? "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                          : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                      }`}
+                    >
+                      Cancelar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveTransactionDate}
+                      disabled={editStatus.type === "saving"}
+                      className={`rounded-2xl px-5 py-3 text-sm font-bold text-white transition ${
+                        editStatus.type === "saving"
+                          ? "cursor-wait bg-slate-500"
+                          : "bg-slate-950 hover:bg-slate-800"
+                      }`}
+                    >
+                      {editStatus.type === "saving"
+                        ? "Salvando..."
+                        : "Salvar alteração"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

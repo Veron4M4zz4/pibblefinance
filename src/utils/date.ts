@@ -50,3 +50,21 @@ export function formatLocalDateLabel(value?: string | null) {
     year: "numeric",
   }).format(parsedDate);
 }
+
+export function formatLocalDateTimeLabel(value?: string | null) {
+  if (!value) return "Data inválida";
+
+  const parsedDate = new Date(String(value));
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "Data inválida";
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(parsedDate);
+}

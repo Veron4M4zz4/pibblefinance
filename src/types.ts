@@ -30,6 +30,9 @@ export interface Transaction {
   toWalletId?: string; // only used when type is 'transfer'
   description: string;
   date: string; // Local date string (YYYY-MM-DD), legacy ISO supported
+  originalDate?: string; // first local date saved for the transaction
+  editedAt?: string; // ISO timestamp of the last date edit
+  dateEdited?: boolean; // whether the date has ever been changed
 }
 
 export interface PresetCategory {
