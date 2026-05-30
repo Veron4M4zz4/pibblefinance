@@ -1013,6 +1013,7 @@ export default function App() {
               wallets={wallets}
               transactions={transactions}
               currency={profile.currency}
+              compact
               onNavigateTab={(tab) => setMobileTab(tab)}
             />
           )}

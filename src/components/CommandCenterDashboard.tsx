@@ -39,6 +39,7 @@ interface DashboardCommandCenterProps {
   transactions: Transaction[];
   currency: "BRL" | "USD" | "EUR";
   onNavigateTab?: (tab: "wallets" | "transactions") => void;
+  compact?: boolean;
 }
 
 interface MetricCard {
@@ -382,6 +383,7 @@ export default function DashboardCommandCenter({
   transactions,
   currency,
   onNavigateTab,
+  compact = false,
 }: DashboardCommandCenterProps) {
   const { resolvedTheme } = useTheme();
   const isLight = resolvedTheme === "light";
@@ -622,6 +624,333 @@ export default function DashboardCommandCenter({
     setGoalAmount(nextGoal);
     setGoalAmountInput(String(nextGoal));
     setStorageItem(MONTHLY_GOAL_STORAGE_KEY, nextGoal);
+  }
+
+  if (compact) {
+    return (
+      <div className="space-y-4">
+        <div className="card-premium rounded-[28px] p-5">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-200">
+                <Sparkles size={12} />
+                Centro de comando
+              </div>
+              <h2 className={`mt-3 text-2xl font-black tracking-tight ${isLight ? "text-slate-950" : "text-white"}`}>
+                Dashboard de decisão financeira
+              </h2>
+              <p className={`mt-2 text-sm leading-6 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
+                Resumo direto do mês, metas e sinais importantes sem poluir a tela inicial.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {metricCards.map((card) => {
+              const isHigherGood = card.positiveWhenHigher;
+              const positiveTrend =
+                card.direction === "flat"
+                  ? "text-slate-400"
+                  : isHigherGood
+                  ? card.direction === "up"
+                    ? "text-emerald-300"
+                    : "text-rose-300"
+                  : card.direction === "down"
+                  ? "text-emerald-300"
+                  : "text-rose-300";
+
+              return (
+                <div
+                  key={card.label}
+                  className={`rounded-[24px] border p-4 ${
+                    isLight
+                      ? "border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.06)]"
+                      : "border-white/10 bg-white/5"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <span className={`block text-[10px] font-bold uppercase tracking-[0.24em] ${isLight ? "text-slate-500" : "text-slate-400"}`}>
+                        {card.label}
+                      </span>
+                      <strong className={`mt-2 block text-[1.35rem] font-black tracking-tight tabular-nums ${isLight ? "text-slate-950" : "text-white"}`}>
+                        {formatMoney(card.value, currency)}
+                      </strong>
+                    </div>
+                    <div className={`rounded-2xl border p-2 ${isLight ? "border-slate-200 bg-slate-50 text-slate-600" : "border-white/10 bg-white/6 text-slate-200"}`}>
+                      {card.direction === "up" ? (
+                        <TrendingUp size={16} className={positiveTrend} />
+                      ) : card.direction === "down" ? (
+                        <TrendingDown size={16} className={positiveTrend} />
+                      ) : (
+                        <CircleDollarSign size={16} className={positiveTrend} />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <span className={`text-xs font-semibold ${positiveTrend}`}>
+                      {card.direction === "flat"
+                        ? "Estável"
+                        : formatTrendValue(card.deltaPercent, card.positiveWhenHigher)}
+                    </span>
+                    <span className={`text-[11px] ${isLight ? "text-slate-500" : "text-slate-400"}`}>
+                      {card.note}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className={`rounded-[28px] border p-5 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                  <Target size={12} />
+                  Meta mensal
+                </div>
+                <p className={`mt-2 text-sm leading-6 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
+                  Economizar {formatMoney(goalAmount, currency)}.
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-[24px] border border-white/10 bg-white/5 p-4">
+              <div className="mb-3 flex items-center justify-between text-xs font-semibold text-slate-400">
+                <span>Progresso</span>
+                <span>{Math.round(Math.min(goalProgress, 1) * 100)}%</span>
+              </div>
+              <div className="h-3 rounded-full bg-white/10">
+                <div
+                  className={`h-3 rounded-full ${
+                    monthlyGoalTone === "success"
+                      ? "bg-emerald-400"
+                      : monthlyGoalTone === "warning"
+                      ? "bg-amber-400"
+                      : "bg-indigo-400"
+                  }`}
+                  style={{ width: `${Math.min(Math.max(goalProgress, 0), 1) * 100}%` }}
+                />
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className={`rounded-2xl border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-slate-950/60"}`}>
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Restante</span>
+                  <strong className="mt-1 block text-base font-black text-white">{formatMoney(goalRemaining, currency)}</strong>
+                </div>
+                <div className={`rounded-2xl border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-slate-950/60"}`}>
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Status</span>
+                  <strong className="mt-1 block text-base font-black text-white">
+                    {goalProgress >= 1 ? "Meta concluída" : goalProgress >= 0.8 ? "Quase lá" : "Em construção"}
+                  </strong>
+                </div>
+                <div className={`rounded-2xl border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-slate-950/60"}`}>
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Previsão</span>
+                  <strong className="mt-1 block text-base font-black text-white">
+                    {goalForecastDate
+                      ? formatLocalDateLabel(formatLocalDateInputValue(goalForecastDate))
+                      : "Sem ritmo definido"}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={`rounded-[28px] border p-5 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                  <Clock3 size={12} />
+                  Próximos vencimentos
+                </div>
+                <p className={`mt-2 text-sm leading-6 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
+                  Contas recorrentes ordenadas por proximidade.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              {dueItems.slice(0, 4).map((item) => (
+                <div
+                  key={item.id}
+                  className={`rounded-[20px] border px-4 py-3 ${
+                    isLight
+                      ? "border-slate-200 bg-white"
+                      : item.tone === "danger"
+                      ? "border-rose-400/20 bg-rose-500/10"
+                      : "border-white/10 bg-white/5"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <strong className={`text-sm font-black ${isLight ? "text-slate-950" : "text-white"}`}>
+                          {item.label}
+                        </strong>
+                        {item.estimated ? (
+                          <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-200">
+                            Estimado
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className={`mt-1 text-xs leading-5 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
+                        {item.source}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <strong className={`block text-sm font-black tabular-nums ${isLight ? "text-slate-950" : "text-white"}`}>
+                        {item.amount > 0 ? formatMoney(item.amount, currency) : "Sem valor"}
+                      </strong>
+                      <span className="text-xs text-slate-400">{formatLocalDateLabel(item.dueDate)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className={`rounded-[28px] border p-5 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                  <NotebookPen size={12} />
+                  Insights do Coach Pibble
+                </div>
+                <p className={`mt-2 text-sm leading-6 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
+                  Alertas rápidos sem abrir painéis pesados.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {mainInsights.map((insight) => (
+                <div
+                  key={insight.title}
+                  className={`rounded-[20px] border p-4 ${
+                    isLight
+                      ? insight.tone === "danger"
+                        ? "border-rose-200 bg-rose-50"
+                        : insight.tone === "warning"
+                        ? "border-amber-200 bg-amber-50"
+                        : "border-emerald-200 bg-emerald-50"
+                      : insight.tone === "danger"
+                      ? "border-rose-400/20 bg-rose-500/10"
+                      : insight.tone === "warning"
+                      ? "border-amber-400/20 bg-amber-500/10"
+                      : "border-emerald-400/20 bg-emerald-500/10"
+                  }`}
+                >
+                  <strong className={`block text-sm font-black ${isLight ? "text-slate-950" : "text-white"}`}>
+                    {insight.title}
+                  </strong>
+                  <p className={`mt-1 text-xs leading-5 ${isLight ? "text-slate-700" : "text-white/80"}`}>
+                    {insight.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className={`rounded-[28px] border p-5 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                  <Clock3 size={12} />
+                  Últimas movimentações
+                </div>
+                <p className={`mt-2 text-sm leading-6 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
+                  Os 4 lançamentos mais recentes.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              {recentTransactions.slice(0, 4).map((transaction) => {
+                const dateValue = normalizeLocalDateValue(transaction.date);
+                const tone =
+                  transaction.type === "income"
+                    ? "text-emerald-300"
+                    : transaction.type === "expense"
+                    ? "text-rose-300"
+                    : "text-sky-300";
+
+                return (
+                  <div
+                    key={transaction.id}
+                    className={`flex items-center justify-between gap-3 rounded-[20px] border px-4 py-3 ${
+                      isLight
+                        ? "border-slate-200 bg-white"
+                        : "border-white/10 bg-white/5"
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <strong className={`block truncate text-sm font-black ${isLight ? "text-slate-950" : "text-white"}`}>
+                        {transaction.description || "Lançamento"}
+                      </strong>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {dateValue ? formatLocalDateLabel(dateValue) : "Data inválida"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className={`block text-sm font-black tabular-nums ${tone}`}>
+                        {transaction.type === "income" ? "+" : transaction.type === "expense" ? "-" : "↔"}
+                        {formatMoney(transaction.amount, currency)}
+                      </span>
+                      <span className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                        {transaction.type === "income"
+                          ? "Entrada"
+                          : transaction.type === "expense"
+                          ? "Saída"
+                          : "Transferência"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className={`rounded-[28px] border p-5 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className={`text-lg font-black ${isLight ? "text-slate-950" : "text-white"}`}>
+                Abrir visão completa
+              </h3>
+              <p className={`mt-1 text-sm leading-6 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
+                No desktop, a versão completa traz calendário, coach e análise profunda.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onNavigateTab?.("wallets")}
+                className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                  isLight
+                    ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+                }`}
+              >
+                Carteiras
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigateTab?.("transactions")}
+                className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                Transações
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
