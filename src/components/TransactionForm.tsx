@@ -18,10 +18,11 @@ import {
   formatLocalDateInputValue,
   normalizeLocalDateValue,
 } from "../utils/date";
+import { parseLocalNumber } from "../utils/numbers";
 
 interface TransactionFormProps {
   wallets: Wallet[];
-  onAddTransaction: (transaction: Omit<Transaction, "id">) => void | Promise<void>;
+  onAddTransaction: (transaction: Omit<Transaction, "id">) => Promise<boolean> | boolean;
   currency: "BRL" | "USD" | "EUR";
 }
 function getWalletTypeLabel(type?: string) {
@@ -54,6 +55,10 @@ export default function TransactionForm({
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(() => formatLocalDateInputValue());
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<{
+    type: "idle" | "saving" | "error" | "success";
+    message: string;
+  }>({ type: "idle", message: "" });
 
   const activeCategories = useMemo(() => {
     if (type === "transfer") return [];
@@ -64,47 +69,131 @@ export default function TransactionForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!amount || Number(amount) <= 0 || isSubmitting) return;
+    if (import.meta.env.DEV) {
+      console.log("[TransactionForm] submit click");
+    }
+
+    if (!amount || isSubmitting) {
+      setSubmitStatus({
+        type: "error",
+        message: "Informe um valor válido antes de registrar.",
+      });
+      return;
+    }
 
     const safeDate = normalizeLocalDateValue(date);
+    const safeAmount = parseLocalNumber(amount);
 
     if (!safeDate) {
       console.error("Data inválida ao registrar transação:", date);
+      setSubmitStatus({
+        type: "error",
+        message: "Selecione uma data válida antes de salvar.",
+      });
+      return;
+    }
+
+    if (!Number.isFinite(safeAmount) || safeAmount <= 0) {
+      console.error("[TransactionForm] valor inválido", amount);
+      setSubmitStatus({
+        type: "error",
+        message: "O valor informado não é válido.",
+      });
       return;
     }
 
     setIsSubmitting(true);
+    setSubmitStatus({ type: "saving", message: "Salvando lançamento..." });
 
     try {
       if (type === "transfer") {
-        if (!walletId || !toWalletId || walletId === toWalletId) return;
+        if (!walletId || !toWalletId || walletId === toWalletId) {
+          setSubmitStatus({
+            type: "error",
+            message: "Escolha uma origem e um destino diferentes.",
+          });
+          return;
+        }
 
-        await onAddTransaction({
+        if (import.meta.env.DEV) {
+          console.log("[TransactionForm] submit payload", {
+            type,
+            amount: safeAmount,
+            category: "Transferência",
+            walletId,
+            toWalletId,
+            description: description.trim() || "Transferência entre contas",
+            date: safeDate,
+          });
+        }
+
+        const saved = await onAddTransaction({
           type,
-          amount: Number(amount),
+          amount: safeAmount,
           category: "Transferência",
           walletId,
           toWalletId,
           description: description.trim() || "Transferência entre contas",
           date: safeDate,
         });
-      } else {
-        if (!walletId || !category) return;
 
-        await onAddTransaction({
+        if (!saved) {
+          setSubmitStatus({
+            type: "error",
+            message: "Não foi possível registrar o lançamento. Tente novamente.",
+          });
+          return;
+        }
+      } else {
+        if (!walletId || !category) {
+          setSubmitStatus({
+            type: "error",
+            message: "Selecione uma carteira e uma categoria.",
+          });
+          return;
+        }
+
+        if (import.meta.env.DEV) {
+          console.log("[TransactionForm] submit payload", {
+            type,
+            amount: safeAmount,
+            category,
+            walletId,
+            description: description.trim(),
+            date: safeDate,
+          });
+        }
+
+        const saved = await onAddTransaction({
           type,
-          amount: Number(amount),
+          amount: safeAmount,
           category,
           walletId,
           description: description.trim(),
           date: safeDate,
         });
+
+        if (!saved) {
+          setSubmitStatus({
+            type: "error",
+            message: "Não foi possível registrar o lançamento. Tente novamente.",
+          });
+          return;
+        }
       }
 
       setAmount("");
       setDescription("");
+      setSubmitStatus({
+        type: "success",
+        message: "Lançamento registrado com sucesso.",
+      });
     } catch (error) {
       console.error("Erro ao registrar transação:", error);
+      setSubmitStatus({
+        type: "error",
+        message: "Não foi possível registrar o lançamento. Tente novamente.",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -123,7 +212,8 @@ export default function TransactionForm({
   }
 
   const isFormValid = useMemo(() => {
-    if (!amount || Number(amount) <= 0 || !walletId) return false;
+    const safeAmount = parseLocalNumber(amount);
+    if (!Number.isFinite(safeAmount) || safeAmount <= 0 || !walletId) return false;
 
     if (type === "transfer") {
       return !!toWalletId && walletId !== toWalletId;
@@ -211,8 +301,8 @@ export default function TransactionForm({
             </span>
 
             <input
-              type="number"
-              step="any"
+              type="text"
+              inputMode="decimal"
               placeholder="0,00"
               className="field-premium w-full rounded-2xl py-3 pl-10 pr-4 font-mono text-base font-bold outline-none transition-all"
               value={amount}
@@ -361,6 +451,20 @@ export default function TransactionForm({
             </div>
           </div>
         )}
+
+        {submitStatus.message ? (
+          <div
+            className={`rounded-2xl border px-4 py-3 text-sm font-medium ${
+              submitStatus.type === "error"
+                ? "border-rose-400/20 bg-rose-500/10 text-rose-100"
+                : submitStatus.type === "success"
+                ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-100"
+                : "border-indigo-400/20 bg-indigo-500/10 text-indigo-100"
+            }`}
+          >
+            {submitStatus.message}
+          </div>
+        ) : null}
 
         <button
           type="submit"

@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import { resolveWalletThemeClass } from "../utils/walletTheme";
 import { formatLocalDateInputValue, normalizeLocalDateValue } from "../utils/date";
+import { parseLocalNumber } from "../utils/numbers";
 
 function normalizeWalletRecord(wallet: any) {
   return {
@@ -199,14 +200,28 @@ export async function createTransaction(transaction: any) {
 
   const normalizedDate =
     normalizeLocalDateValue(transaction?.date) || formatLocalDateInputValue();
+  const amount = parseLocalNumber(transaction?.amount);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    console.error("[storage.createTransaction] invalid amount", transaction?.amount);
+    return null;
+  }
+
+  if (!transaction?.walletId || !transaction?.type) {
+    console.error("[storage.createTransaction] missing required fields", {
+      walletId: transaction?.walletId,
+      type: transaction?.type,
+    });
+    return null;
+  }
 
   const transactionPayload: any = {
     user_id: userId,
     wallet_id: transaction.walletId,
     type: transaction.type,
-    amount: Number(transaction.amount || 0),
+    amount,
     category: transaction.category,
-    description: transaction.description,
+    description: transaction.description || "",
     date: normalizedDate,
     original_date: normalizedDate,
     date_edited: false,
@@ -215,6 +230,10 @@ export async function createTransaction(transaction: any) {
 
   if (transaction.type === "transfer") {
     transactionPayload.to_wallet_id = transaction.toWalletId;
+  }
+
+  if (import.meta.env.DEV) {
+    console.log("[storage.createTransaction] payload", transactionPayload);
   }
 
   const { data, error } = await supabase
@@ -227,7 +246,10 @@ export async function createTransaction(transaction: any) {
     return null;
   }
 
-  const amount = Number(transaction.amount || 0);
+  if (import.meta.env.DEV) {
+    console.log("[storage.createTransaction] response", data);
+  }
+
   const walletUpdates: Array<{ walletId: string; balance: number }> = [];
 
   if (transaction.type === "expense") {

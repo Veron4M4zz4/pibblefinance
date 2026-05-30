@@ -606,30 +606,60 @@ export default function App() {
   }
 
   async function handleAddTransaction(newTransaction: Omit<Transaction, "id">) {
-    const result = await createTransaction(newTransaction);
-    await loadTransactions();
-    await loadWallets();
+    try {
+      const result = await createTransaction(newTransaction);
 
-    if (!result) return;
+      if (!result?.transactions?.length) {
+        console.error("[App] createTransaction failed or returned no rows", {
+          newTransaction,
+          result,
+        });
+        return false;
+      }
 
-    const walletUpdateIds = result?.walletUpdates?.map(
-      (update: WalletBalanceUpdate) => update.walletId
-    ) ?? [];
+      const savedTransaction = result.transactions[0];
+      const walletUpdateIds = result?.walletUpdates?.map(
+        (update: WalletBalanceUpdate) => update.walletId
+      ) ?? [];
 
-    if (result?.walletUpdates?.length) {
+      if (result?.walletUpdates?.length) {
+        setWallets((currentWallets) =>
+          applyWalletBalanceUpdates(currentWallets, result.walletUpdates)
+        );
+      }
+
       setWallets((currentWallets) =>
-        applyWalletBalanceUpdates(currentWallets, result.walletUpdates)
+        applyTransactionBalanceFallback(
+          currentWallets,
+          newTransaction,
+          "add",
+          walletUpdateIds
+        )
       );
-    }
 
-    setWallets((currentWallets) =>
-      applyTransactionBalanceFallback(
-        currentWallets,
-        newTransaction,
-        "add",
-        walletUpdateIds
-      )
-    );
+      setTransactions((currentTransactions) => {
+        const nextTransactions = [
+          savedTransaction,
+          ...currentTransactions.filter(
+            (transaction) => transaction.id !== savedTransaction.id
+          ),
+        ].sort((a, b) => {
+          const aTime = parseLocalDateValue(a.date)?.getTime() || 0;
+          const bTime = parseLocalDateValue(b.date)?.getTime() || 0;
+
+          return bTime - aTime;
+        });
+
+        return nextTransactions;
+      });
+
+      await Promise.all([loadTransactions(), loadWallets()]);
+
+      return true;
+    } catch (error) {
+      console.error("[App] erro ao registrar transação:", error);
+      return false;
+    }
   }
 
   async function handleDeleteTransaction(transactionId: string) {

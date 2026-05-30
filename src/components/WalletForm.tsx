@@ -9,6 +9,7 @@ import {
   getWalletColorPreset,
   WALLET_COLOR_PRESETS,
 } from "../utils/walletColors";
+import { parseLocalNumber } from "../utils/numbers";
 
 import {
   Building2,
@@ -61,6 +62,12 @@ export default function WalletForm({
 
     if (!walletName.trim() || !walletBalance || isSubmitting) return;
 
+    const safeBalance = parseLocalNumber(walletBalance);
+
+    if (!Number.isFinite(safeBalance)) {
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -71,7 +78,7 @@ export default function WalletForm({
       const newWallet: Omit<Wallet, "id"> = {
         name: walletName.trim(),
         type: walletType,
-        balance: Number(walletBalance),
+        balance: safeBalance,
         color: safeColor,
         currency,
       };
@@ -92,6 +99,8 @@ export default function WalletForm({
       setIsSubmitting(false);
     }
   }
+
+  const walletPreviewBalance = parseLocalNumber(walletBalance);
 
   return (
     <div className="card-premium rounded-[28px] p-6">
@@ -145,8 +154,8 @@ export default function WalletForm({
             </label>
 
             <input
-              type="number"
-              step="any"
+              type="text"
+              inputMode="decimal"
               placeholder="Ex. 1500,00"
               className="field-premium w-full rounded-2xl px-3.5 py-3 font-mono text-sm outline-none transition-all duration-200 placeholder:text-slate-500"
               value={walletBalance}
@@ -189,7 +198,7 @@ export default function WalletForm({
               </span>
 
               <span className="font-mono text-2xl font-bold tracking-tight text-white">
-                {formatMoney(Number(walletBalance) || 0, currency)}
+                {formatMoney(Number.isFinite(walletPreviewBalance) ? walletPreviewBalance : 0, currency)}
               </span>
             </div>
           </div>
@@ -197,7 +206,12 @@ export default function WalletForm({
 
         <button
           type="submit"
-          disabled={!walletName.trim() || !walletBalance || isSubmitting}
+          disabled={
+            !walletName.trim() ||
+            !walletBalance ||
+            !Number.isFinite(parseLocalNumber(walletBalance)) ||
+            isSubmitting
+          }
           className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold shadow-md transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
             isLight
               ? "border border-slate-200 bg-slate-900 text-white hover:bg-slate-800"
