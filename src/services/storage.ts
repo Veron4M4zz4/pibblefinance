@@ -223,9 +223,6 @@ export async function createTransaction(transaction: any) {
     category: transaction.category,
     description: transaction.description || "",
     date: normalizedDate,
-    original_date: normalizedDate,
-    date_edited: false,
-    edited_at: null,
   };
 
   if (transaction.type === "transfer") {
@@ -249,6 +246,8 @@ export async function createTransaction(transaction: any) {
   if (import.meta.env.DEV) {
     console.log("[storage.createTransaction] response", data);
   }
+
+  let returnedTransactions = (data || []).map(normalizeTransactionRecord);
 
   const walletUpdates: Array<{ walletId: string; balance: number }> = [];
 
@@ -288,8 +287,34 @@ export async function createTransaction(transaction: any) {
     if (targetUpdate) walletUpdates.push(targetUpdate);
   }
 
+  const createdTransaction = data?.[0];
+
+  if (createdTransaction?.id) {
+    const metadataUpdate = await supabase
+      .from("transactions")
+      .update({
+        original_date: normalizedDate,
+        date_edited: false,
+        edited_at: null,
+      })
+      .eq("id", createdTransaction.id)
+      .eq("user_id", userId)
+      .select("*");
+
+    if (metadataUpdate.error) {
+      if (import.meta.env.DEV) {
+        console.warn(
+          "[storage.createTransaction] metadata update skipped",
+          metadataUpdate.error.message
+        );
+      }
+    } else if (metadataUpdate.data?.length) {
+      returnedTransactions = metadataUpdate.data.map(normalizeTransactionRecord);
+    }
+  }
+
   return {
-    transactions: (data || []).map(normalizeTransactionRecord),
+    transactions: returnedTransactions,
     walletUpdates,
   };
 }
@@ -308,7 +333,7 @@ export async function updateTransactionDate(
 
   const { data: currentTransaction, error: fetchError } = await supabase
     .from("transactions")
-    .select("id, date, original_date, date_edited, edited_at")
+    .select("id, date")
     .eq("id", transactionId)
     .eq("user_id", userId)
     .single();
@@ -329,17 +354,12 @@ export async function updateTransactionDate(
   }
 
   const originalDate =
-    normalizeLocalDateValue(
-      currentTransaction?.original_date || currentTransaction?.date
-    ) || normalizedDate;
+    normalizeLocalDateValue(currentTransaction?.date) || normalizedDate;
 
   const { data, error } = await supabase
     .from("transactions")
     .update({
       date: normalizedDate,
-      original_date: originalDate,
-      date_edited: true,
-      edited_at: new Date().toISOString(),
     })
     .eq("id", transactionId)
     .eq("user_id", userId)
@@ -348,6 +368,32 @@ export async function updateTransactionDate(
   if (error) {
     console.error(error);
     return null;
+  }
+
+  if (data?.[0]?.id) {
+    const metadataUpdate = await supabase
+      .from("transactions")
+      .update({
+        original_date: originalDate,
+        date_edited: true,
+        edited_at: new Date().toISOString(),
+      })
+      .eq("id", transactionId)
+      .eq("user_id", userId)
+      .select("*");
+
+    if (metadataUpdate.error) {
+      if (import.meta.env.DEV) {
+        console.warn(
+          "[storage.updateTransactionDate] metadata update skipped",
+          metadataUpdate.error.message
+        );
+      }
+    } else if (metadataUpdate.data?.length) {
+      return {
+        transactions: metadataUpdate.data.map(normalizeTransactionRecord),
+      };
+    }
   }
 
   return {
