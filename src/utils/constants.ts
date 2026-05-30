@@ -32,6 +32,7 @@ export const WALLET_TYPES = [
   { id: "credit", name: "Cartão de Crédito" },
   { id: "cash", name: "Dinheiro Físico" },
   { id: "savings", name: "Reserva de Emergência" },
+  { id: "investment", name: "Investimento" },
 ] as const;
 
 export const AVATAR_COLORS = [

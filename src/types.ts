@@ -8,7 +8,8 @@ export type WalletType =
   | "debit"
   | "credit"
   | "cash"
-  | "savings";
+  | "savings"
+  | "investment";
 
 export interface Wallet {
   id: string;

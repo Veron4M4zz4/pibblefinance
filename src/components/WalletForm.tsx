@@ -15,6 +15,7 @@ import {
   CreditCard,
   Coins,
   PiggyBank,
+  TrendingUp,
   Plus,
   Wallet as WalletIcon,
 } from "lucide-react";
@@ -48,6 +49,8 @@ export default function WalletForm({
         return <Coins size={18} />;
       case "savings":
         return <PiggyBank size={18} />;
+      case "investment":
+        return <TrendingUp size={18} />;
       default:
         return <Building2 size={18} />;
     }

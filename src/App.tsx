@@ -34,11 +34,10 @@ import {
   resolveWalletThemeClass,
 } from "./utils/walletTheme";
 
-import DashboardCharts from "./components/DashboardCharts";
+import CommandCenterDashboard from "./components/CommandCenterDashboard";
 import WalletForm from "./components/WalletForm";
 import TransactionForm from "./components/TransactionForm";
 import TransactionList from "./components/TransactionList";
-import CoachPibble from "./components/CoachPibble";
 
 import {
   AlertTriangle,
@@ -908,14 +907,6 @@ export default function App() {
     { id: "profile", label: "Perfil", icon: UserRound },
   ] as const;
 
-  const mobilePrimaryActionClass = isLightTheme
-    ? "flex-1 rounded-xl border border-slate-200 bg-slate-900 py-3 text-xs font-bold text-white transition hover:bg-slate-800"
-    : "flex-1 rounded-xl bg-white py-3 text-xs font-bold text-slate-950 transition hover:bg-slate-100";
-
-  const mobileSecondaryActionClass = isLightTheme
-    ? "flex-1 rounded-xl border border-slate-200 bg-white py-3 text-xs font-bold text-slate-900 transition hover:bg-slate-50"
-    : "flex-1 rounded-xl border border-white/10 bg-white/5 py-3 text-xs font-bold text-slate-200 transition hover:bg-white/10";
-
   return (
     <main className="release-shell min-h-screen bg-mesh-radial pb-12 text-slate-800">
       <header className="surface-premium sticky top-0 z-50 px-6 py-4 backdrop-blur-2xl">
@@ -1018,138 +1009,12 @@ export default function App() {
       <div className="md:hidden px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+7rem)]">
         <div className="space-y-4">
           {mobileTab === "home" && (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="card-premium rounded-[24px] p-4">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
-                    Saldo
-                  </span>
-                  <strong className="mt-2 block text-[1.35rem] font-black tracking-tight text-white">
-                    {formatMoney(totals.cashBalance, profile.currency)}
-                  </strong>
-                </div>
-
-                <div className="card-premium rounded-[24px] p-4">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
-                    Crédito
-                  </span>
-                  <strong className="mt-2 block text-[1.35rem] font-black tracking-tight text-white">
-                    {formatMoney(totals.creditRemaining, profile.currency)}
-                  </strong>
-                </div>
-
-                <div className="card-premium rounded-[24px] p-4">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
-                    Saídas
-                  </span>
-                  <strong className="mt-2 block text-[1.35rem] font-black tracking-tight text-white">
-                    {formatMoney(totals.totalExpenses, profile.currency)}
-                  </strong>
-                </div>
-
-                <div className="card-premium rounded-[24px] p-4">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
-                    Score
-                  </span>
-                  <strong className="mt-2 block text-[1.35rem] font-black tracking-tight text-white">
-                    {totals.healthScore}/100
-                  </strong>
-                </div>
-              </div>
-
-              <div className="card-premium rounded-[28px] p-4">
-                <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
-                  Leitura rápida
-                </span>
-                <h2 className="mt-2 text-lg font-black tracking-tight text-white">
-                  {totals.mainInsight.title}
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-slate-400">
-                  {totals.mainInsight.text}
-                </p>
-                <div className="mt-4 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setMobileTab("coach")}
-                    className={mobilePrimaryActionClass}
-                  >
-                    Abrir Coach
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMobileTab("wallets")}
-                    className={mobileSecondaryActionClass}
-                  >
-                    Ver carteiras
-                  </button>
-                </div>
-              </div>
-
-              <details className="card-premium rounded-[28px] p-4">
-                <summary className="flex list-none items-center justify-between gap-3 text-sm font-bold text-white">
-                  Ver análises
-                  <span className="text-xs font-semibold text-slate-400">
-                    gráficos e histórico
-                  </span>
-                </summary>
-                <div className="mt-4">
-                  <DashboardCharts
-                    wallets={wallets}
-                    transactions={transactions}
-                    currency={profile.currency}
-                  />
-                </div>
-              </details>
-
-              <div className="card-premium rounded-[28px] p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
-                      Alertas
-                    </span>
-                    <p className="mt-1 text-sm text-slate-300">
-                      O que merece atenção agora.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2.5">
-                  {totals.alerts.slice(0, 2).map((alert) => (
-                    <div
-                      key={alert.title}
-                      className={`rounded-2xl border p-3 ${
-                        alert.tone === "danger"
-                          ? isLightTheme
-                            ? "border-rose-200 bg-rose-50"
-                            : "border-rose-400/20 bg-rose-500/10"
-                          : alert.tone === "warning"
-                          ? isLightTheme
-                            ? "border-amber-200 bg-amber-50"
-                            : "border-amber-400/20 bg-amber-500/10"
-                          : isLightTheme
-                          ? "border-emerald-200 bg-emerald-50"
-                          : "border-emerald-400/20 bg-emerald-500/10"
-                      }`}
-                    >
-                      <strong
-                        className={`block text-sm font-black ${
-                          isLightTheme ? "text-slate-950" : "text-white"
-                        }`}
-                      >
-                        {alert.title}
-                      </strong>
-                      <p
-                        className={`mt-1 text-xs leading-5 ${
-                          isLightTheme ? "text-slate-700" : "text-white/75"
-                        }`}
-                      >
-                        {alert.text}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
+            <CommandCenterDashboard
+              wallets={wallets}
+              transactions={transactions}
+              currency={profile.currency}
+              onNavigateTab={(tab) => setMobileTab(tab)}
+            />
           )}
 
           {mobileTab === "wallets" && (
@@ -1636,37 +1501,12 @@ export default function App() {
         </div>
 
         {activeTab === "dashboard" && (
-          <div className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
-            <div className="space-y-6">
-              <DashboardCharts
-                wallets={wallets}
-                transactions={transactions}
-                currency={profile.currency}
-              />
-
-              <TransactionList
-                transactions={transactions}
-                wallets={wallets}
-                currency={profile.currency}
-                onDeleteTransaction={handleDeleteTransaction}
-                onEditTransactionDate={handleEditTransactionDate}
-              />
-            </div>
-
-            <div className="space-y-6">
-              <CoachPibble
-                wallets={wallets}
-                transactions={transactions}
-                currency={profile.currency}
-              />
-
-              <TransactionForm
-                wallets={wallets}
-                onAddTransaction={handleAddTransaction}
-                currency={profile.currency}
-              />
-            </div>
-          </div>
+          <CommandCenterDashboard
+            wallets={wallets}
+            transactions={transactions}
+            currency={profile.currency}
+            onNavigateTab={(tab) => setActiveTab(tab)}
+          />
         )}
 
         {activeTab === "wallets" && (
