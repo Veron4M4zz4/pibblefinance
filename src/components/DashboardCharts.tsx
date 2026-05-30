@@ -14,6 +14,10 @@ import {
 import { Wallet, Transaction } from "../types";
 import { PRESET_CATEGORIES } from "../utils/constants";
 import { formatMoney } from "../utils/formatMoney";
+import {
+  formatLocalDateInputValue,
+  normalizeLocalDateValue,
+} from "../utils/date";
 import { useTheme } from "../context/ThemeProvider";
 import {
   buildWalletBalanceSummary,
@@ -106,7 +110,7 @@ export default function DashboardCharts({
       date.setDate(date.getDate() - (13 - index));
 
       return {
-        rawDate: date.toISOString().slice(0, 10),
+        rawDate: formatLocalDateInputValue(date),
         date: formatDateLabel(date),
         entradas: 0,
         gastos: 0,
@@ -114,7 +118,7 @@ export default function DashboardCharts({
     });
 
     transactions.forEach((transaction) => {
-      const transactionDate = String(transaction.date || "").slice(0, 10);
+      const transactionDate = normalizeLocalDateValue(transaction.date);
       const day = days.find((item) => item.rawDate === transactionDate);
 
       if (!day) return;

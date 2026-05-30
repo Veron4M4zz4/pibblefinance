@@ -29,7 +29,7 @@ export interface Transaction {
   walletId: string;
   toWalletId?: string; // only used when type is 'transfer'
   description: string;
-  date: string; // ISO String
+  date: string; // Local date string (YYYY-MM-DD), legacy ISO supported
 }
 
 export interface PresetCategory {

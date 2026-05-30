@@ -14,6 +14,10 @@ import {
 } from "lucide-react";
 import type { Wallet, Transaction, TransactionType } from "../types";
 import { useTheme } from "../context/ThemeProvider";
+import {
+  formatLocalDateInputValue,
+  normalizeLocalDateValue,
+} from "../utils/date";
 
 interface TransactionFormProps {
   wallets: Wallet[];
@@ -35,16 +39,6 @@ function getWalletOptionLabel(wallet: Wallet) {
   return `${wallet.name} — ${getWalletTypeLabel(wallet.type)}`;
 }
 
-function toSafeIsoDate(dateValue: string) {
-  const parsed = new Date(dateValue);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  return parsed.toISOString();
-}
-
 export default function TransactionForm({
   wallets,
   onAddTransaction,
@@ -58,10 +52,7 @@ export default function TransactionForm({
   const [walletId, setWalletId] = useState("");
   const [toWalletId, setToWalletId] = useState("");
   const [description, setDescription] = useState("");
-  const [date, setDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split("T")[0];
-  });
+  const [date, setDate] = useState(() => formatLocalDateInputValue());
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const activeCategories = useMemo(() => {
@@ -75,7 +66,7 @@ export default function TransactionForm({
     e.preventDefault();
     if (!amount || Number(amount) <= 0 || isSubmitting) return;
 
-    const safeDate = toSafeIsoDate(date);
+    const safeDate = normalizeLocalDateValue(date);
 
     if (!safeDate) {
       console.error("Data inválida ao registrar transação:", date);

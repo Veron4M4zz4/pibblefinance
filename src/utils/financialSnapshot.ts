@@ -1,4 +1,5 @@
 import type { Transaction, Wallet } from "../types";
+import { parseLocalDateValue } from "./date";
 
 export type FinancialAlertTone = "success" | "warning" | "danger";
 
@@ -145,10 +146,7 @@ function daysBetween(dateA: Date, dateB: Date) {
 }
 
 function toDateOrNull(value?: string | null) {
-  if (!value) return null;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed;
+  return parseLocalDateValue(value);
 }
 
 function getAlertTone(score: number): FinancialAlertTone {

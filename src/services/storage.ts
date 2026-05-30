@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { resolveWalletThemeClass } from "../utils/walletTheme";
+import { formatLocalDateInputValue, normalizeLocalDateValue } from "../utils/date";
 
 function normalizeWalletRecord(wallet: any) {
   return {
@@ -21,7 +22,7 @@ function normalizeTransactionRecord(transaction: any) {
     category: transaction?.category || "",
     type: transaction?.type || "expense",
     amount: Number(transaction?.amount || 0),
-    date: transaction?.date || new Date().toISOString(),
+    date: normalizeLocalDateValue(transaction?.date) || formatLocalDateInputValue(),
   };
 }
 

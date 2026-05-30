@@ -1,3 +1,5 @@
+import { formatLocalDateLabel } from "./date";
+
 export function formatMoney(
   value: number,
   currency: "BRL" | "USD" | "EUR" = "BRL"
@@ -14,15 +16,5 @@ export function formatMoney(
 }
 
 export function formatDate(date: string) {
-  const parsedDate = new Date(date);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return "Data inválida";
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(parsedDate);
+  return formatLocalDateLabel(date);
 }

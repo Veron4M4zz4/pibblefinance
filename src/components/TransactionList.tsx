@@ -24,6 +24,10 @@ import {
   getTransactionToWalletId,
   getTransactionWalletId,
 } from "../utils/financialSnapshot";
+import {
+  formatLocalDateInputValue,
+  parseLocalDateValue,
+} from "../utils/date";
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -134,13 +138,15 @@ export default function TransactionList({
       let matchPeriod = true;
 
       if (periodFilter !== "all") {
-        const transactionDate = new Date(transactionDateValue);
+        const transactionDate = parseLocalDateValue(transactionDateValue);
         const today = new Date();
         const startOfToday = new Date(
           today.getFullYear(),
           today.getMonth(),
           today.getDate()
         );
+
+        if (!transactionDate) return false;
 
         if (periodFilter === "today") {
           matchPeriod = isSameDate(transactionDate, today);
@@ -236,7 +242,7 @@ export default function TransactionList({
     link.setAttribute("href", encodedUri);
     link.setAttribute(
       "download",
-      `pibble_extrato_${new Date().toISOString().split("T")[0]}.csv`
+      `pibble_extrato_${formatLocalDateInputValue()}.csv`
     );
     document.body.appendChild(link);
     link.click();
