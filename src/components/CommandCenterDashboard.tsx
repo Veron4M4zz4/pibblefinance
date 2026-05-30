@@ -1,15 +1,19 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import {
   ArrowDownRight,
   CalendarDays,
   CalendarRange,
+  BadgeCheck,
+  BadgeDollarSign,
   ChevronLeft,
   ChevronRight,
   CircleDollarSign,
+  CircleOff,
   Clock3,
   LineChart,
   NotebookPen,
+  RotateCcw,
   Sparkles,
   Target,
   TrendingDown,
@@ -31,6 +35,12 @@ import {
   buildFinancialSnapshot,
   buildWalletBalanceSummary,
 } from "../utils/financialSnapshot";
+import {
+  buildSubscriptionOverview,
+  SUBSCRIPTION_OVERRIDES_STORAGE_KEY,
+  type SubscriptionFrequency,
+  type SubscriptionOverride,
+} from "../utils/subscriptions";
 import DashboardCharts from "./DashboardCharts";
 import CoachPibble from "./CoachPibble";
 
@@ -79,6 +89,7 @@ interface CalendarDayCell {
 }
 
 const MONTHLY_GOAL_STORAGE_KEY = "pibblefinance:monthly-saving-goal";
+const SUBSCRIPTION_OVERRIDES_KEY = SUBSCRIPTION_OVERRIDES_STORAGE_KEY;
 
 const RECURRING_RULES = [
   {
@@ -400,6 +411,13 @@ export default function DashboardCommandCenter({
   );
   const [showAdvancedCharts, setShowAdvancedCharts] = useState(false);
   const [showCoach, setShowCoach] = useState(false);
+  const [subscriptionOverrides, setSubscriptionOverrides] = useState<
+    Record<string, SubscriptionOverride>
+  >(() => getStorageItem<Record<string, SubscriptionOverride>>(SUBSCRIPTION_OVERRIDES_KEY, {}));
+
+  useEffect(() => {
+    setStorageItem(SUBSCRIPTION_OVERRIDES_KEY, subscriptionOverrides);
+  }, [subscriptionOverrides]);
 
   const totals = useMemo(
     () => buildFinancialSnapshot(wallets, transactions),
@@ -409,6 +427,11 @@ export default function DashboardCommandCenter({
   const walletSummary = useMemo(
     () => buildWalletBalanceSummary(wallets, transactions),
     [wallets, transactions]
+  );
+
+  const subscriptionOverview = useMemo(
+    () => buildSubscriptionOverview(wallets, transactions, subscriptionOverrides),
+    [wallets, transactions, subscriptionOverrides]
   );
 
   const today = new Date();
@@ -624,6 +647,24 @@ export default function DashboardCommandCenter({
     setGoalAmount(nextGoal);
     setGoalAmountInput(String(nextGoal));
     setStorageItem(MONTHLY_GOAL_STORAGE_KEY, nextGoal);
+  }
+
+  function updateSubscriptionOverride(
+    subscriptionId: string,
+    override: SubscriptionOverride
+  ) {
+    setSubscriptionOverrides((current) => ({
+      ...current,
+      [subscriptionId]: override,
+    }));
+  }
+
+  function clearSubscriptionOverride(subscriptionId: string) {
+    setSubscriptionOverrides((current) => {
+      const next = { ...current };
+      delete next[subscriptionId];
+      return next;
+    });
   }
 
   if (compact) {
@@ -917,6 +958,48 @@ export default function DashboardCommandCenter({
         </div>
 
         <div className={`rounded-[28px] border p-5 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
+          <div className="mb-4 flex items-center gap-2">
+            <BadgeDollarSign size={14} className="text-indigo-300" />
+            <strong className={`text-sm font-black uppercase tracking-[0.18em] ${isLight ? "text-slate-950" : "text-white"}`}>
+              Assinaturas
+            </strong>
+          </div>
+
+          <div className="space-y-3">
+            {subscriptionOverview.items.slice(0, 3).map((item) => (
+              <div
+                key={item.id}
+                className={`rounded-[20px] border px-4 py-3 ${
+                  isLight
+                    ? "border-slate-200 bg-white"
+                    : "border-white/10 bg-white/5"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <strong className={`block truncate text-sm font-black ${isLight ? "text-slate-950" : "text-white"}`}>
+                      {item.displayName}
+                    </strong>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {item.frequency === "monthly" ? "Mensal" : "Anual"} · {formatMoney(item.monthlyEquivalent, currency)}/mês
+                    </p>
+                  </div>
+                  <span className="text-right text-xs text-slate-400">
+                    {formatLocalDateLabel(item.nextChargeDate)}
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            {subscriptionOverview.items.length === 0 ? (
+              <p className="text-sm text-slate-400">
+                Ainda não foi possível identificar assinaturas com confiança suficiente.
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className={`rounded-[28px] border p-5 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className={`text-lg font-black ${isLight ? "text-slate-950" : "text-white"}`}>
@@ -1073,6 +1156,259 @@ export default function DashboardCommandCenter({
               </motion.div>
             );
           })}
+        </div>
+      </div>
+
+      <div className={`rounded-[32px] border p-6 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
+        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+              <BadgeDollarSign size={12} />
+              Assinaturas recorrentes
+            </div>
+            <h3 className={`mt-3 text-2xl font-black tracking-tight ${isLight ? "text-slate-950" : "text-white"}`}>
+              Você gasta {formatMoney(subscriptionOverview.monthlyTotal, currency)} por mês em assinaturas.
+            </h3>
+            <p className={`mt-2 max-w-2xl text-sm leading-6 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
+              Detectamos cobranças repetidas por nome, valor e frequência. Você pode corrigir frequência, ignorar falsos positivos e acompanhar o custo anual.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className={`rounded-[22px] border p-4 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-slate-950/40"}`}>
+              <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">Mensal</span>
+              <strong className="mt-1 block text-xl font-black text-white">{formatMoney(subscriptionOverview.monthlyTotal, currency)}</strong>
+            </div>
+            <div className={`rounded-[22px] border p-4 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-slate-950/40"}`}>
+              <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">Anual</span>
+              <strong className="mt-1 block text-xl font-black text-white">{formatMoney(subscriptionOverview.annualTotal, currency)}</strong>
+            </div>
+            <div className={`rounded-[22px] border p-4 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-slate-950/40"}`}>
+              <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">Detectadas</span>
+              <strong className="mt-1 block text-xl font-black text-white">{subscriptionOverview.items.length}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+          <div className="space-y-3">
+            {subscriptionOverview.items.length === 0 ? (
+              <div className={`rounded-[26px] border border-dashed px-5 py-10 text-center ${isLight ? "border-slate-200 bg-white text-slate-600" : "border-white/10 bg-white/5 text-slate-400"}`}>
+                <BadgeCheck size={24} className="mx-auto mb-2 text-emerald-300" />
+                <p className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-slate-200"}`}>Ainda não identificamos assinaturas com confiança suficiente.</p>
+                <p className="mt-1 text-xs leading-6">Quando houver recorrência de nome, valor e intervalo, este painel será preenchido automaticamente.</p>
+              </div>
+            ) : (
+              subscriptionOverview.items.slice(0, 6).map((item) => {
+                const currentOverride = subscriptionOverrides[item.id];
+                const isIgnored = item.ignored;
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`rounded-[28px] border p-5 transition ${
+                      isLight
+                        ? "border-slate-200 bg-white hover:bg-slate-50"
+                        : "border-white/10 bg-white/5 hover:bg-white/8"
+                    } ${isIgnored ? "opacity-45" : ""}`}
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <strong className={`truncate text-base font-black ${isLight ? "text-slate-950" : "text-white"}`}>
+                            {item.displayName}
+                          </strong>
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                            item.frequency === "monthly"
+                              ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+                              : "border-indigo-400/20 bg-indigo-500/10 text-indigo-200"
+                          }`}>
+                            {item.frequency === "monthly" ? "Mensal" : "Anual"}
+                          </span>
+                          {item.confidence >= 0.8 ? (
+                            <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200">
+                              Alta confiança
+                            </span>
+                          ) : (
+                            <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-200">
+                              Revisar
+                            </span>
+                          )}
+                          {isIgnored ? (
+                            <span className="rounded-full border border-slate-300/20 bg-slate-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-300">
+                              Ignorada
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
+                          <span>{formatMoney(item.amount, currency)} por cobrança</span>
+                          <span>Próxima cobrança: {formatLocalDateLabel(item.nextChargeDate)}</span>
+                          <span>Carteira: {item.walletName}</span>
+                          <span>Custo anual estimado: {formatMoney(item.annualCostEstimate, currency)}</span>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {item.signals.slice(0, 3).map((signal) => (
+                            <span
+                              key={signal}
+                              className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                                isLight
+                                  ? "border-slate-200 bg-slate-50 text-slate-600"
+                                  : "border-white/10 bg-white/5 text-slate-300"
+                              }`}
+                            >
+                              {signal}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-2">
+                        <label className="sr-only" htmlFor={`subscription-frequency-${item.id}`}>
+                          Frequência
+                        </label>
+                        <select
+                          id={`subscription-frequency-${item.id}`}
+                          value={currentOverride?.frequency || item.frequency}
+                          onChange={(event) =>
+                            updateSubscriptionOverride(item.id, {
+                              status: "confirmed",
+                              frequency: event.target.value as SubscriptionFrequency,
+                              displayName: currentOverride?.displayName || item.displayName,
+                            })
+                          }
+                          className={`rounded-2xl border px-3 py-2 text-sm outline-none transition ${
+                            isLight
+                              ? "border-slate-200 bg-white text-slate-900"
+                              : "border-white/10 bg-slate-950 text-white"
+                          }`}
+                        >
+                          <option value="monthly">Mensal</option>
+                          <option value="yearly">Anual</option>
+                        </select>
+
+                        <button
+                          type="button"
+                          onClick={() => clearSubscriptionOverride(item.id)}
+                          className={`rounded-2xl border px-3 py-2 text-xs font-semibold transition ${
+                            isLight
+                              ? "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                              : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                          }`}
+                        >
+                          <RotateCcw size={14} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            isIgnored
+                              ? clearSubscriptionOverride(item.id)
+                              : updateSubscriptionOverride(item.id, {
+                                  status: "ignored",
+                                  frequency:
+                                    currentOverride?.frequency || item.frequency,
+                                  displayName:
+                                    currentOverride?.displayName || item.displayName,
+                                })
+                          }
+                          className={`rounded-2xl border px-3 py-2 text-xs font-semibold transition ${
+                            isLight
+                              ? isIgnored
+                                ? "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                              : isIgnored
+                              ? "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                              : "border-rose-400/20 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20"
+                          }`}
+                        >
+                          {isIgnored ? <RotateCcw size={14} /> : <CircleOff size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className={`rounded-[28px] border p-5 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
+              <div className="mb-4 flex items-center gap-2">
+                <BadgeCheck size={14} className="text-emerald-300" />
+                <strong className={`text-sm font-black uppercase tracking-[0.18em] ${isLight ? "text-slate-950" : "text-white"}`}>
+                  Insights
+                </strong>
+              </div>
+
+              <div className="space-y-3">
+                {subscriptionOverview.insights.map((insight) => (
+                  <div
+                    key={insight.title}
+                    className={`rounded-[22px] border p-4 ${
+                      isLight
+                        ? insight.tone === "danger"
+                          ? "border-rose-200 bg-rose-50"
+                          : insight.tone === "warning"
+                          ? "border-amber-200 bg-amber-50"
+                          : "border-emerald-200 bg-emerald-50"
+                        : insight.tone === "danger"
+                        ? "border-rose-400/20 bg-rose-500/10"
+                        : insight.tone === "warning"
+                        ? "border-amber-400/20 bg-amber-500/10"
+                        : "border-emerald-400/20 bg-emerald-500/10"
+                    }`}
+                  >
+                    <strong className={`block text-sm font-black ${isLight ? "text-slate-950" : "text-white"}`}>
+                      {insight.title}
+                    </strong>
+                    <p className={`mt-1 text-xs leading-5 ${isLight ? "text-slate-700" : "text-white/80"}`}>
+                      {insight.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className={`rounded-[28px] border p-5 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
+              <div className="mb-4 flex items-center gap-2">
+                <BadgeDollarSign size={14} className="text-indigo-300" />
+                <strong className={`text-sm font-black uppercase tracking-[0.18em] ${isLight ? "text-slate-950" : "text-white"}`}>
+                  Gastos por categoria
+                </strong>
+              </div>
+
+              <div className="space-y-3">
+                {subscriptionOverview.categoryBreakdown.length === 0 ? (
+                  <p className="text-sm text-slate-400">Sem dados suficientes para dividir por categoria.</p>
+                ) : (
+                  subscriptionOverview.categoryBreakdown.slice(0, 4).map((item) => (
+                    <div key={item.name}>
+                      <div className="mb-1 flex items-center justify-between text-xs text-slate-400">
+                        <span>{item.name}</span>
+                        <span>{formatMoney(item.value, currency)}/mês</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-white/10">
+                        <div
+                          className="h-2 rounded-full bg-gradient-to-r from-indigo-400 to-cyan-400"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              Math.max(
+                                12,
+                                (item.value / Math.max(subscriptionOverview.monthlyTotal, 1)) * 100
+                              )
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
