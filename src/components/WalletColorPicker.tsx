@@ -12,6 +12,7 @@ interface WalletColorPickerProps {
   label?: string;
   size?: "sm" | "lg";
   showNames?: boolean;
+  "data-testid"?: string;
 }
 
 export default function WalletColorPicker({
@@ -20,6 +21,7 @@ export default function WalletColorPicker({
   label = "Tema & Aparência",
   size = "sm",
   showNames = false,
+  "data-testid": testId,
 }: WalletColorPickerProps) {
   const { resolvedTheme } = useTheme();
   const isLight = resolvedTheme === "light";
@@ -30,7 +32,7 @@ export default function WalletColorPicker({
   const buttonSize = size === "lg" ? "h-9 w-9" : "h-7 w-7";
 
   return (
-    <div>
+    <div data-testid={testId}>
       <label className="mb-2 block text-ui-label">{label}</label>
 
       <div className="flex flex-wrap gap-2.5">

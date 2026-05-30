@@ -17,6 +17,7 @@ import { askCoachPibble } from "../services/coachAI";
 import { useTheme } from "../context/ThemeProvider";
 import { buildFinancialSnapshot } from "../utils/financialSnapshot";
 import { formatMoney } from "../utils/formatMoney";
+import { TEST_IDS } from "../utils/testIds";
 
 interface WalletType {
   id: string;
@@ -181,6 +182,7 @@ export default function CoachPibble({
   return (
     <>
       <div
+        data-testid={TEST_IDS.coachCard}
         className={`card-premium relative overflow-hidden rounded-[28px] p-6 ${
           isLight ? "text-slate-950" : "text-white"
         }`}
@@ -368,7 +370,8 @@ export default function CoachPibble({
                 },
               ]);
             }
-          }}
+        }}
+        data-testid={TEST_IDS.coachChatButton}
           className={`relative mt-5 flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-bold transition ${
             isLight
               ? "border-slate-200 bg-slate-900 text-white hover:bg-slate-800"

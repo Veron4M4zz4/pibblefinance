@@ -2,6 +2,19 @@ import { supabase } from "./supabase";
 import { resolveWalletThemeClass } from "../utils/walletTheme";
 import { formatLocalDateInputValue, normalizeLocalDateValue } from "../utils/date";
 import { parseLocalNumber } from "../utils/numbers";
+import {
+  createE2ETransaction,
+  createE2EWallet,
+  deleteE2ETransaction,
+  deleteE2EWallet,
+  getE2EMockSession,
+  getE2ETransactions,
+  getE2EWallets,
+  isE2EMode,
+  updateE2ETransactionDate,
+  updateE2EWallet,
+  updateE2EWalletBalance,
+} from "./e2eMock";
 
 function normalizeWalletRecord(wallet: any) {
   return {
@@ -40,6 +53,10 @@ function normalizeTransactionRecord(transaction: any) {
 }
 
 async function getCurrentUserId() {
+  if (isE2EMode()) {
+    return getE2EMockSession()?.user?.id || "e2e-user";
+  }
+
   const {
     data: { user },
     error,
@@ -54,6 +71,10 @@ async function getCurrentUserId() {
 }
 
 export async function getWallets() {
+  if (isE2EMode()) {
+    return getE2EWallets().map(normalizeWalletRecord);
+  }
+
   const userId = await getCurrentUserId();
 
   if (!userId) return [];
@@ -73,6 +94,10 @@ export async function getWallets() {
 }
 
 export async function createWallet(wallet: any) {
+  if (isE2EMode()) {
+    return [normalizeWalletRecord(createE2EWallet(wallet))];
+  }
+
   const userId = await getCurrentUserId();
 
   if (!userId) return null;
@@ -96,6 +121,10 @@ export async function createWallet(wallet: any) {
 }
 
 export async function updateWallet(walletId: string, wallet: any) {
+  if (isE2EMode()) {
+    return updateE2EWallet(walletId, wallet).map(normalizeWalletRecord);
+  }
+
   const userId = await getCurrentUserId();
 
   if (!userId) return null;
@@ -116,6 +145,11 @@ export async function updateWallet(walletId: string, wallet: any) {
 }
 
 export async function deleteWallet(walletId: string) {
+  if (isE2EMode()) {
+    deleteE2EWallet(walletId);
+    return;
+  }
+
   const userId = await getCurrentUserId();
 
   if (!userId) return;
@@ -132,6 +166,10 @@ export async function deleteWallet(walletId: string) {
 }
 
 export async function getTransactions() {
+  if (isE2EMode()) {
+    return getE2ETransactions().map(normalizeTransactionRecord);
+  }
+
   const userId = await getCurrentUserId();
 
   if (!userId) return [];
@@ -155,6 +193,24 @@ async function updateWalletBalance(
   amount: number,
   operation: "add" | "subtract"
 ) {
+  if (isE2EMode()) {
+    const wallets = getE2EWallets();
+    const wallet = wallets.find((item) => item.id === walletId);
+
+    if (!wallet) return null;
+
+    const currentBalance = Number(wallet.balance || 0);
+    const newBalance =
+      operation === "add" ? currentBalance + amount : currentBalance - amount;
+
+    updateE2EWalletBalance(walletId, newBalance);
+
+    return {
+      walletId,
+      balance: newBalance,
+    };
+  }
+
   const userId = await getCurrentUserId();
 
   if (!userId) return;
@@ -194,6 +250,81 @@ async function updateWalletBalance(
 }
 
 export async function createTransaction(transaction: any) {
+  if (isE2EMode()) {
+    const normalizedDate =
+      normalizeLocalDateValue(transaction?.date) || formatLocalDateInputValue();
+    const amount = parseLocalNumber(transaction?.amount);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      console.error("[storage.createTransaction] invalid amount", transaction?.amount);
+      return null;
+    }
+
+    if (!transaction?.walletId || !transaction?.type) {
+      console.error("[storage.createTransaction] missing required fields", {
+        walletId: transaction?.walletId,
+        type: transaction?.type,
+      });
+      return null;
+    }
+
+    const nextTransaction = createE2ETransaction({
+      walletId: transaction.walletId,
+      toWalletId: transaction.toWalletId,
+      type: transaction.type,
+      amount,
+      category: transaction.category,
+      description: transaction.description || "",
+      date: normalizedDate,
+      originalDate: normalizedDate,
+      editedAt: "",
+      dateEdited: false,
+    });
+
+    const walletUpdates: Array<{ walletId: string; balance: number }> = [];
+
+    if (transaction.type === "expense") {
+      const update = await updateWalletBalance(
+        transaction.walletId,
+        amount,
+        "subtract"
+      );
+
+      if (update) walletUpdates.push(update);
+    }
+
+    if (transaction.type === "income") {
+      const update = await updateWalletBalance(
+        transaction.walletId,
+        amount,
+        "add"
+      );
+
+      if (update) walletUpdates.push(update);
+    }
+
+    if (transaction.type === "transfer") {
+      const sourceUpdate = await updateWalletBalance(
+        transaction.walletId,
+        amount,
+        "subtract"
+      );
+      const targetUpdate = await updateWalletBalance(
+        transaction.toWalletId,
+        amount,
+        "add"
+      );
+
+      if (sourceUpdate) walletUpdates.push(sourceUpdate);
+      if (targetUpdate) walletUpdates.push(targetUpdate);
+    }
+
+    return {
+      transactions: [normalizeTransactionRecord(nextTransaction)],
+      walletUpdates,
+    };
+  }
+
   const userId = await getCurrentUserId();
 
   if (!userId) return null;
@@ -323,6 +454,13 @@ export async function updateTransactionDate(
   transactionId: string,
   date: string
 ) {
+  if (isE2EMode()) {
+    const updatedTransactions = updateE2ETransactionDate(transactionId, date);
+    return {
+      transactions: updatedTransactions.map(normalizeTransactionRecord),
+    };
+  }
+
   const userId = await getCurrentUserId();
 
   if (!userId) return null;
@@ -402,6 +540,63 @@ export async function updateTransactionDate(
 }
 
 export async function deleteTransaction(transactionId: string) {
+  if (isE2EMode()) {
+    const transaction = getE2ETransactions().find(
+      (item) => item.id === transactionId
+    );
+
+    if (!transaction) return;
+
+    deleteE2ETransaction(transactionId);
+
+    const amount = Number(transaction?.amount || 0);
+    const walletUpdates: Array<{ walletId: string; balance: number }> = [];
+
+    if (transaction.type === "expense") {
+      const update = await updateWalletBalance(
+        transaction.walletId,
+        amount,
+        "add"
+      );
+
+      if (update) walletUpdates.push(update);
+    }
+
+    if (transaction.type === "income") {
+      const update = await updateWalletBalance(
+        transaction.walletId,
+        amount,
+        "subtract"
+      );
+
+      if (update) walletUpdates.push(update);
+    }
+
+    if (transaction.type === "transfer") {
+      const sourceUpdate = await updateWalletBalance(
+        transaction.walletId,
+        amount,
+        "add"
+      );
+
+      if (transaction.toWalletId) {
+        const targetUpdate = await updateWalletBalance(
+          transaction.toWalletId,
+          amount,
+          "subtract"
+        );
+
+        if (targetUpdate) walletUpdates.push(targetUpdate);
+      }
+
+      if (sourceUpdate) walletUpdates.push(sourceUpdate);
+    }
+
+    return {
+      walletUpdates,
+    };
+  }
+
   const userId = await getCurrentUserId();
 
   if (!userId) return;

@@ -41,6 +41,7 @@ import {
   type SubscriptionFrequency,
   type SubscriptionOverride,
 } from "../utils/subscriptions";
+import { TEST_IDS } from "../utils/testIds";
 import DashboardCharts from "./DashboardCharts";
 import CoachPibble from "./CoachPibble";
 
@@ -669,7 +670,7 @@ export default function DashboardCommandCenter({
 
   if (compact) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" data-testid={TEST_IDS.dashboardPage}>
         <div className="card-premium rounded-[28px] p-5">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
@@ -1037,7 +1038,7 @@ export default function DashboardCommandCenter({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid={TEST_IDS.dashboardPage}>
       <div className="card-premium rounded-[32px] p-6 lg:p-8">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -1159,7 +1160,7 @@ export default function DashboardCommandCenter({
         </div>
       </div>
 
-      <div className={`rounded-[32px] border p-6 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}>
+      <div className={`rounded-[32px] border p-6 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`} data-testid={TEST_IDS.dashboardSubscriptions}>
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">

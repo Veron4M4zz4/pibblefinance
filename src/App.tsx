@@ -16,6 +16,14 @@ import {
   updateTransactionDate,
   deleteTransaction,
 } from "./services/storage";
+import {
+  clearE2EWorkspace,
+  clearE2EMockSession,
+  getE2EMockSession,
+  isE2EMode,
+  seedE2ESession,
+  setE2EMockSession,
+} from "./services/e2eMock";
 
 import { AVATAR_COLORS } from "./utils/constants";
 import { formatMoney } from "./utils/formatMoney";
@@ -24,6 +32,7 @@ import {
   buildWalletBalanceSummary,
 } from "./utils/financialSnapshot";
 import { parseLocalDateValue } from "./utils/date";
+import { TEST_IDS } from "./utils/testIds";
 import WalletColorPicker from "./components/WalletColorPicker";
 import {
   getWalletColorIndex,
@@ -108,7 +117,9 @@ export default function App() {
   const isLightTheme = resolvedTheme === "light";
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState("");
+  const [currentUser, setCurrentUser] = useState(() =>
+    getStorageItem("pibblefinance:user", "")
+  );
   const [authStatus, setAuthStatus] = useState<{
     type: "idle" | "loading" | "error";
     message: string;
@@ -271,6 +282,33 @@ export default function App() {
     async function initAuth() {
       setAuthLoading(true);
 
+      if (isE2EMode()) {
+        const mockSession = getE2EMockSession();
+        const storedUser = getStorageItem("pibblefinance:user", "");
+        const storedProfile = getStorageItem<UserProfile>("pibblefinance:profile", {
+          name: "",
+          currency: "BRL",
+          avatarColor: AVATAR_COLORS[0],
+          joinedAt: new Date().toISOString(),
+        });
+
+        if (!mounted) return;
+
+        if (mockSession) {
+          syncUserFromSession(mockSession);
+        } else if (storedUser) {
+          setCurrentUser(storedUser);
+          setProfile((prev) => ({
+            ...prev,
+            ...storedProfile,
+            name: storedUser,
+          }));
+        }
+
+        setAuthLoading(false);
+        return;
+      }
+
       const isOAuthCallback = window.location.pathname === "/auth/callback";
       const code = new URLSearchParams(window.location.search).get("code");
 
@@ -300,7 +338,20 @@ export default function App() {
         console.error("Erro ao recuperar sessão:", error.message);
       }
 
-      syncUserFromSession(session);
+      if (session) {
+        syncUserFromSession(session);
+      } else {
+        const storedUser = getStorageItem("pibblefinance:user", "");
+        if (storedUser) {
+          setCurrentUser(storedUser);
+          setProfile((prev) => ({
+            ...prev,
+            name: storedUser,
+          }));
+        } else {
+          syncUserFromSession(null);
+        }
+      }
       setAuthLoading(false);
     }
 
@@ -488,6 +539,21 @@ export default function App() {
     setAuthStatus({ type: "loading", message: "Abrindo login com Google..." });
     setIsGoogleLoginLoading(true);
 
+    if (isE2EMode()) {
+      clearE2EWorkspace();
+      const session = seedE2ESession("Verona Mazza");
+
+      safeStorageSet("pibblefinance:user", session.user.user_metadata?.full_name || "Verona Mazza");
+      setProfile((prev) => ({
+        ...prev,
+        name: session.user.user_metadata?.full_name || "Verona Mazza",
+      }));
+      syncUserFromSession(session);
+      window.history.replaceState({}, document.title, "/?e2e=1");
+      setAuthLoading(false);
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -525,11 +591,20 @@ export default function App() {
     safeStorageSet("pibblefinance:user", trimmedName);
     setProfile(newProfile);
     setCurrentUser(trimmedName);
+
+    if (isE2EMode()) {
+      const session = seedE2ESession(trimmedName);
+      setE2EMockSession(session);
+    }
   }
 
   function handleSeedMockData() {
     setAuthStatus({ type: "idle", message: "" });
     setIsGoogleLoginLoading(false);
+
+    if (isE2EMode()) {
+      clearE2EWorkspace();
+    }
 
     const seededProfile: UserProfile = {
       name: "Verona Mazza",
@@ -541,6 +616,11 @@ export default function App() {
     safeStorageSet("pibblefinance:user", "Verona Mazza");
     setProfile(seededProfile);
     setCurrentUser("Verona Mazza");
+
+    if (isE2EMode()) {
+      const session = seedE2ESession("Verona Mazza");
+      setE2EMockSession(session);
+    }
   }
 
   async function handleAddWallet(newWallet: Omit<Wallet, "id">) {
@@ -730,6 +810,30 @@ export default function App() {
   async function handleLogout() {
     setAuthLoading(true);
 
+    if (isE2EMode()) {
+      clearE2EMockSession();
+      clearE2EWorkspace();
+      safeStorageRemove("pibblefinance:user");
+      safeStorageRemove("pibblefinance:profile");
+
+      setSession(null);
+      setCurrentUser("");
+      setWallets([]);
+      setTransactions([]);
+      setActiveTab("dashboard");
+      setMobileTab("home");
+
+      setProfile({
+        name: "",
+        currency: "BRL",
+        avatarColor: AVATAR_COLORS[0],
+        joinedAt: new Date().toISOString(),
+      });
+
+      setAuthLoading(false);
+      return;
+    }
+
     const { error } = await supabase.auth.signOut();
 
     if (error) {
@@ -786,7 +890,7 @@ export default function App() {
 
   if (!session?.user && !currentUser) {
     return (
-      <main className="flex min-h-screen items-center justify-center p-6">
+      <main className="flex min-h-screen items-center justify-center p-6" data-testid={TEST_IDS.authPage}>
         <div className="w-full max-w-lg">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -796,6 +900,7 @@ export default function App() {
             <button
               type="button"
               onClick={toggleTheme}
+              data-testid={TEST_IDS.themeToggle}
               className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
               title={`Alternar para tema ${resolvedTheme === "dark" ? "claro" : "escuro"}`}
             >
@@ -841,6 +946,7 @@ export default function App() {
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={isGoogleLoginLoading}
+                data-testid={TEST_IDS.loginGoogleButton}
                 className="flex w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white px-4 py-3.5 text-sm font-bold text-slate-900 shadow-[0_12px_30px_rgba(255,255,255,0.08)] transition hover:-translate-y-0.5 hover:bg-slate-100 disabled:cursor-wait disabled:opacity-70"
               >
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200">
@@ -867,13 +973,14 @@ export default function App() {
                   Nome do Perfil
                 </label>
 
-                <input
-                  type="text"
-                  placeholder="Ex: Verona"
-                  value={userName}
-                  onChange={(event) => setUserName(event.target.value)}
-                  className="field-premium w-full rounded-xl px-4 py-3 text-sm outline-none"
-                />
+              <input
+                type="text"
+                placeholder="Ex: Verona"
+                value={userName}
+                onChange={(event) => setUserName(event.target.value)}
+                data-testid={TEST_IDS.profileNameInput}
+                className="field-premium w-full rounded-xl px-4 py-3 text-sm outline-none"
+              />
               </div>
 
               <div>
@@ -888,6 +995,7 @@ export default function App() {
                       event.target.value as "BRL" | "USD" | "EUR"
                     )
                   }
+                  data-testid={TEST_IDS.currencySelector}
                   className="field-premium w-full rounded-xl px-4 py-3 text-sm outline-none"
                 >
                   <option value="BRL">R$ (BRL)</option>
@@ -899,6 +1007,7 @@ export default function App() {
               <button
                 onClick={handleLogin}
                 disabled={!userName.trim()}
+                data-testid={TEST_IDS.createSpaceButton}
                 className="w-full rounded-xl bg-indigo-600 py-3.5 text-xs font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Criar Novo Espaço
@@ -906,6 +1015,7 @@ export default function App() {
 
               <button
                 onClick={handleSeedMockData}
+                data-testid={TEST_IDS.demoModeButton}
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-indigo-700 bg-indigo-600/5 py-3 text-xs font-semibold text-indigo-400 transition hover:bg-indigo-600/10"
               >
                 <Sparkles size={14} />
@@ -938,7 +1048,7 @@ export default function App() {
   ] as const;
 
   return (
-    <main className="release-shell min-h-screen bg-mesh-radial pb-12 text-slate-800">
+    <main className="release-shell min-h-screen bg-mesh-radial pb-12 text-slate-800" data-testid={TEST_IDS.dashboardPage}>
       <header className="surface-premium sticky top-0 z-50 px-6 py-4 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-[1400px] flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
@@ -985,6 +1095,7 @@ export default function App() {
               onChange={(event) =>
                 handleChangeCurrency(event.target.value as "BRL" | "USD" | "EUR")
               }
+              data-testid={TEST_IDS.currencySelector}
               className="h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-bold text-slate-200 shadow-sm outline-none transition hover:border-indigo-300 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
             >
               <option value="BRL">BRL</option>
@@ -995,6 +1106,7 @@ export default function App() {
             <button
               type="button"
               onClick={toggleTheme}
+              data-testid={TEST_IDS.themeToggle}
               className="flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-bold text-slate-200 transition hover:bg-white/10"
               title={`Alternar para tema ${resolvedTheme === "dark" ? "claro" : "escuro"}`}
             >
@@ -1067,10 +1179,11 @@ export default function App() {
                   </span>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2" data-testid={TEST_IDS.walletList}>
                   {walletOverview.wallets.map((wallet) => (
                     <div
                       key={wallet.id}
+                      data-testid={TEST_IDS.walletCard}
                       className={`relative overflow-hidden rounded-[24px] border p-4 ${resolveWalletThemeClass(
                         wallet.color,
                         wallet.type
@@ -1117,6 +1230,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => handleStartEditWallet(wallet)}
+                          data-testid={TEST_IDS.walletEditButton}
                           className={`rounded-xl border p-2 transition ${
                             isLightTheme
                               ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950"
@@ -1680,10 +1794,11 @@ export default function App() {
                   ) : null}
                 </div>
               ) : (
-                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" data-testid={TEST_IDS.walletList}>
                   {walletOverview.wallets.map((wallet) => (
                     <div
                       key={wallet.id}
+                      data-testid={TEST_IDS.walletCard}
                       className={`relative flex h-full min-h-[220px] flex-col justify-between overflow-hidden rounded-[28px] border p-6 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg ${resolveWalletThemeClass(
                         wallet.color,
                         wallet.type
@@ -1707,6 +1822,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => handleStartEditWallet(wallet)}
+                          data-testid={TEST_IDS.walletEditButton}
                           className="rounded-xl border border-white/20 bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
                           title="Editar carteira"
                         >
@@ -1947,6 +2063,7 @@ export default function App() {
                   label="Cor da carteira"
                   size="lg"
                   showNames
+                  data-testid={TEST_IDS.walletEditColorPicker}
                 />
               </div>
             </div>

@@ -19,6 +19,7 @@ import {
   normalizeLocalDateValue,
 } from "../utils/date";
 import { parseLocalNumber } from "../utils/numbers";
+import { TEST_IDS } from "../utils/testIds";
 
 interface TransactionFormProps {
   wallets: Wallet[];
@@ -223,7 +224,7 @@ export default function TransactionForm({
   }, [amount, walletId, toWalletId, category, type]);
 
   return (
-    <div className="card-premium rounded-[28px] p-6">
+    <div className="card-premium rounded-[28px] p-6" data-testid={TEST_IDS.transactionForm}>
       <div className="mb-6">
         <h3 className="font-display flex items-center gap-2 text-lg font-bold text-ui-title">
           <PlusCircle className="text-emerald-300" size={20} />
@@ -304,6 +305,7 @@ export default function TransactionForm({
               type="text"
               inputMode="decimal"
               placeholder="0,00"
+              data-testid={TEST_IDS.transactionAmountInput}
               className="field-premium w-full rounded-2xl py-3 pl-10 pr-4 font-mono text-base font-bold outline-none transition-all"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
@@ -319,6 +321,7 @@ export default function TransactionForm({
             </label>
 
             <select
+              data-testid={TEST_IDS.transactionWalletSelect}
               className={`field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all ${
                 isLight ? "bg-white text-slate-900" : ""
               }`}
@@ -343,6 +346,7 @@ export default function TransactionForm({
               </label>
 
               <select
+                data-testid={TEST_IDS.transactionCategorySelect}
                 className={`field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all ${
                   isLight ? "bg-white text-slate-900" : ""
                 }`}
@@ -395,6 +399,7 @@ export default function TransactionForm({
 
             <input
               type="date"
+              data-testid={TEST_IDS.transactionDateInput}
               className={`field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all ${
                 isLight ? "bg-white text-slate-900" : ""
               }`}
@@ -412,6 +417,7 @@ export default function TransactionForm({
             <input
               type="text"
               placeholder="Ex: Compras no mercado, Freelance..."
+              data-testid={TEST_IDS.transactionDescriptionInput}
               className="field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -468,6 +474,7 @@ export default function TransactionForm({
 
         <button
           type="submit"
+          data-testid={TEST_IDS.transactionSubmitButton}
           disabled={!isFormValid || isSubmitting}
           className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-3 text-xs font-semibold shadow-xs transition-all duration-200 ${
             isFormValid && !isSubmitting

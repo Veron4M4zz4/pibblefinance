@@ -1,0 +1,18 @@
+[
+  {
+    "id": "wallet-checking",
+    "name": "MercadoPago",
+    "type": "checking",
+    "balance": 1530.42,
+    "color": "indigo",
+    "currency": "BRL"
+  },
+  {
+    "id": "wallet-credit",
+    "name": "Nubank",
+    "type": "credit",
+    "balance": 8000,
+    "color": "rose",
+    "currency": "BRL"
+  }
+]

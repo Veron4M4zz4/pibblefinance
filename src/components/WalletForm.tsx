@@ -10,6 +10,7 @@ import {
   WALLET_COLOR_PRESETS,
 } from "../utils/walletColors";
 import { parseLocalNumber } from "../utils/numbers";
+import { TEST_IDS } from "../utils/testIds";
 
 import {
   Building2,
@@ -103,7 +104,7 @@ export default function WalletForm({
   const walletPreviewBalance = parseLocalNumber(walletBalance);
 
   return (
-    <div className="card-premium rounded-[28px] p-6">
+    <div className="card-premium rounded-[28px] p-6" data-testid={TEST_IDS.walletForm}>
       <h3 className="font-display flex items-center gap-2 text-lg font-bold text-ui-title">
         <WalletIcon className="text-indigo-300" size={20} />
         Minhas Carteiras
@@ -121,6 +122,7 @@ export default function WalletForm({
 
           <input
             type="text"
+            data-testid={TEST_IDS.walletNameInput}
             placeholder="Ex: Nubank, Carteira Física, XP Reserva"
             className="field-premium w-full rounded-2xl px-3.5 py-3 text-sm outline-none transition-all duration-200"
             value={walletName}
@@ -136,6 +138,7 @@ export default function WalletForm({
             </label>
 
             <select
+              data-testid={TEST_IDS.walletTypeSelect}
               className="field-premium w-full rounded-2xl px-3 py-3 text-sm outline-none transition-all duration-200"
               value={walletType}
               onChange={(e) => setWalletType(e.target.value as WalletType)}
@@ -155,6 +158,7 @@ export default function WalletForm({
 
             <input
               type="text"
+              data-testid={TEST_IDS.walletBalanceInput}
               inputMode="decimal"
               placeholder="Ex. 1500,00"
               className="field-premium w-full rounded-2xl px-3.5 py-3 font-mono text-sm outline-none transition-all duration-200 placeholder:text-slate-500"
@@ -168,6 +172,7 @@ export default function WalletForm({
         <WalletColorPicker
           value={selectedColorIndex}
           onChange={setSelectedColorIndex}
+          data-testid={TEST_IDS.walletColorPicker}
         />
 
         <div className="pt-2">
@@ -206,6 +211,7 @@ export default function WalletForm({
 
         <button
           type="submit"
+          data-testid={TEST_IDS.walletFormSubmitButton}
           disabled={
             !walletName.trim() ||
             !walletBalance ||

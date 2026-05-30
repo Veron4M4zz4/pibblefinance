@@ -33,6 +33,7 @@ import {
   normalizeLocalDateValue,
   parseLocalDateValue,
 } from "../utils/date";
+import { TEST_IDS } from "../utils/testIds";
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -344,7 +345,7 @@ export default function TransactionList({
     Number(search.trim().length > 0);
 
   return (
-    <div className={`card-premium rounded-[28px] p-6 ${isLight ? "text-slate-900" : "text-white"}`}>
+    <div className={`card-premium rounded-[28px] p-6 ${isLight ? "text-slate-900" : "text-white"}`} data-testid={TEST_IDS.transactionList}>
       <div className="mb-5 flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">
@@ -545,6 +546,7 @@ export default function TransactionList({
               return (
                 <motion.div
                   key={transaction.id}
+                  data-testid={TEST_IDS.transactionItem}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.96 }}
@@ -656,6 +658,7 @@ export default function TransactionList({
                     <button
                       type="button"
                       onClick={() => openTransactionDateEditor(transaction)}
+                      data-testid={TEST_IDS.transactionEditButton}
                       className={`rounded-xl border p-2 transition ${
                         isLight
                           ? "border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
@@ -669,6 +672,7 @@ export default function TransactionList({
                     <button
                       type="button"
                       onClick={() => onDeleteTransaction(transaction.id)}
+                      data-testid={TEST_IDS.transactionDeleteButton}
                       className={`rounded-xl border p-2 transition ${
                         isLight
                           ? "border-slate-200 bg-white text-slate-500 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
@@ -788,6 +792,7 @@ export default function TransactionList({
                       type="date"
                       value={editDateValue}
                       onChange={(e) => setEditDateValue(e.target.value)}
+                      data-testid={TEST_IDS.transactionEditDateInput}
                       className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none transition ${
                         isLight
                           ? "border-slate-200 bg-white text-slate-900 focus:border-indigo-400/40"

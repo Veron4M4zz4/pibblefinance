@@ -1,0 +1,26 @@
+[
+  {
+    "id": "tx-income",
+    "type": "income",
+    "amount": 5000,
+    "category": "salary",
+    "walletId": "wallet-checking",
+    "description": "Salário",
+    "date": "2026-05-30",
+    "originalDate": "2026-05-30",
+    "dateEdited": false,
+    "editedAt": ""
+  },
+  {
+    "id": "tx-expense",
+    "type": "expense",
+    "amount": 89.9,
+    "category": "food",
+    "walletId": "wallet-checking",
+    "description": "Delivery",
+    "date": "2026-05-30",
+    "originalDate": "2026-05-30",
+    "dateEdited": false,
+    "editedAt": ""
+  }
+]
