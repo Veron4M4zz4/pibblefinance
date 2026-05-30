@@ -22,6 +22,11 @@ import {
   buildFinancialSnapshot,
   buildWalletBalanceSummary,
 } from "./utils/financialSnapshot";
+import WalletColorPicker from "./components/WalletColorPicker";
+import {
+  getWalletColorIndex,
+  getWalletColorPreset,
+} from "./utils/walletColors";
 import {
   resolveWalletAccentClass,
   resolveWalletThemeClass,
@@ -120,6 +125,11 @@ export default function App() {
   const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null);
   const [editWalletName, setEditWalletName] = useState("");
   const [editWalletBalance, setEditWalletBalance] = useState("");
+  const [editWalletColorIndex, setEditWalletColorIndex] = useState(1);
+  const [editWalletStatus, setEditWalletStatus] = useState<{
+    type: "idle" | "saving" | "saved";
+    message: string;
+  }>({ type: "idle", message: "" });
 
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "wallets" | "transactions"
@@ -523,19 +533,48 @@ export default function App() {
     setEditingWallet(wallet);
     setEditWalletName(wallet.name);
     setEditWalletBalance(String(wallet.balance || 0));
+    setEditWalletColorIndex(getWalletColorIndex(wallet.color, wallet.type));
+    setEditWalletStatus({ type: "idle", message: "" });
+  }
+
+  function closeWalletEditor() {
+    setEditingWallet(null);
+    setEditWalletName("");
+    setEditWalletBalance("");
+    setEditWalletColorIndex(1);
+    setEditWalletStatus({ type: "idle", message: "" });
   }
 
   async function handleSaveWalletEdit() {
     if (!editingWallet || !editWalletName.trim()) return;
 
-    await updateWallet(editingWallet.id, {
+    setEditWalletStatus({ type: "saving", message: "Salvando alterações..." });
+    const safeColor =
+      getWalletColorPreset(editWalletColorIndex).className ||
+      getWalletColorPreset(1).className;
+
+    const updatedWallets = await updateWallet(editingWallet.id, {
       name: editWalletName.trim(),
       balance: Number(editWalletBalance || 0),
+      color: safeColor,
     });
 
-    setEditingWallet(null);
-    setEditWalletName("");
-    setEditWalletBalance("");
+    if (!updatedWallets) {
+      setEditWalletStatus({
+        type: "idle",
+        message: "Não foi possível salvar a carteira agora.",
+      });
+      return;
+    }
+
+    setEditWalletStatus({
+      type: "saved",
+      message: "Cor da carteira atualizada com sucesso.",
+    });
+
+    window.setTimeout(() => {
+      closeWalletEditor();
+    }, 900);
 
     await loadWallets();
     await loadTransactions();
@@ -1849,161 +1888,205 @@ export default function App() {
       </nav>
 
     {editingWallet && (
-  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/40 backdrop-blur-md p-4">
-    <motion.div
-      initial={{
-        opacity: 0,
-        scale: 0.96,
-        y: 12,
-      }}
-      animate={{
-        opacity: 1,
-        scale: 1,
-        y: 0,
-      }}
-      transition={{
-        duration: 0.2,
-        ease: "easeOut",
-      }}
-      className="w-full max-w-lg rounded-3xl border border-white/20 bg-white p-6 shadow-2xl"
-    >
-      <div className="mb-6">
-        <h3 className="text-3xl font-black tracking-tight text-slate-900">
-          Editar carteira
-        </h3>
-
-        <p className="mt-1 text-sm text-slate-500">
-          Atualize o nome e o saldo da carteira.
-        </p>
-      </div>
-
-      <div className="space-y-5">
-        <div>
-          <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
-            Nome da carteira
-          </label>
-
-          <input
-            type="text"
-            value={editWalletName}
-            onChange={(event) => setEditWalletName(event.target.value)}
-            className="
-              w-full
-              rounded-2xl
-              border
-              border-slate-200
-              bg-slate-50
-              px-4
-              py-3
-              text-sm
-              text-slate-900
-              outline-none
-              transition
-              focus:border-indigo-500
-              focus:bg-white
-            "
-          />
-        </div>
-
-        <div>
-          <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
-            Saldo atual
-          </label>
-
-          <input
-            type="number"
-            value={editWalletBalance}
-            onChange={(event) => setEditWalletBalance(event.target.value)}
-            className="
-              w-full
-              rounded-2xl
-              border
-              border-slate-200
-              bg-slate-50
-              px-4
-              py-3
-              text-sm
-              text-slate-900
-              outline-none
-              transition
-              focus:border-indigo-500
-              focus:bg-white
-            "
-          />
-        </div>
-      </div>
-
-      <div className="mt-8 flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => {
-            if (!editingWallet) return;
-            setWalletToDelete(editingWallet);
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-md">
+        <motion.div
+          initial={{
+            opacity: 0,
+            scale: 0.96,
+            y: 12,
           }}
-          className="
-            rounded-2xl
-            border
-            border-rose-200
-            bg-rose-50
-            px-4
-            py-3
-            text-sm
-            font-bold
-            text-rose-600
-            transition
-            hover:bg-rose-100
-          "
+          animate={{
+            opacity: 1,
+            scale: 1,
+            y: 0,
+          }}
+          transition={{
+            duration: 0.2,
+            ease: "easeOut",
+          }}
+          className={`w-full max-w-4xl overflow-hidden rounded-[32px] border shadow-2xl ${
+            isLightTheme
+              ? "border-slate-200 bg-white"
+              : "border-white/10 bg-slate-950/95"
+          }`}
         >
-          Deletar carteira
-        </button>
+          <div className="grid gap-0 md:grid-cols-[1.15fr_0.85fr]">
+            <div className="p-6 md:p-7">
+              <div className="mb-6">
+                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                  Personalização
+                </div>
+                <h3 className="text-3xl font-black tracking-tight text-ui-title">
+                  Personalizar carteira
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-ui-muted">
+                  Ajuste a aparência da carteira sem alterar nome, tipo ou saldo.
+                </p>
+              </div>
 
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              setEditingWallet(null);
-              setEditWalletName("");
-              setEditWalletBalance("");
-            }}
-            className="
-              rounded-2xl
-              border
-              border-slate-200
-              bg-white
-              px-4
-              py-3
-              text-sm
-              font-bold
-              text-slate-500
-              transition
-              hover:bg-slate-50
-            "
-          >
-            Cancelar
-          </button>
+              {editWalletStatus.message ? (
+                <div
+                  className={`mb-5 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                    editWalletStatus.type === "saved"
+                      ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+                      : "border-amber-400/20 bg-amber-500/10 text-amber-100"
+                  }`}
+                >
+                  {editWalletStatus.message}
+                </div>
+              ) : null}
 
-          <button
-            type="button"
-            onClick={handleSaveWalletEdit}
-            className="
-              rounded-2xl
-              bg-slate-950
-              px-5
-              py-3
-              text-sm
-              font-bold
-              text-white
-              transition
-              hover:bg-slate-800
-            "
-          >
-            Salvar alterações
-          </button>
-        </div>
+              <div className="mb-5 grid gap-3 sm:grid-cols-3">
+                <div
+                  className={`rounded-2xl border p-3 ${
+                    isLightTheme
+                      ? "border-slate-200 bg-white"
+                      : "border-white/10 bg-white/5"
+                  }`}
+                >
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                    Nome
+                  </span>
+                  <strong className="mt-1 block truncate text-sm font-black text-ui-title">
+                    {editingWallet.name}
+                  </strong>
+                </div>
+
+                <div
+                  className={`rounded-2xl border p-3 ${
+                    isLightTheme
+                      ? "border-slate-200 bg-white"
+                      : "border-white/10 bg-white/5"
+                  }`}
+                >
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                    Saldo
+                  </span>
+                  <strong className="mt-1 block truncate text-sm font-black text-ui-title tabular-nums">
+                    {formatMoney(Number(editWalletBalance || 0), editingWallet.currency)}
+                  </strong>
+                </div>
+
+                <div
+                  className={`rounded-2xl border p-3 ${
+                    isLightTheme
+                      ? "border-slate-200 bg-white"
+                      : "border-white/10 bg-white/5"
+                  }`}
+                >
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                    Tipo
+                  </span>
+                  <strong className="mt-1 block truncate text-sm font-black text-ui-title">
+                    {getWalletTypeLabel(editingWallet.type)}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="space-y-5">
+                <WalletColorPicker
+                  value={editWalletColorIndex}
+                  onChange={setEditWalletColorIndex}
+                  label="Cor da carteira"
+                  size="lg"
+                  showNames
+                />
+              </div>
+            </div>
+
+            <div
+              className={`border-t p-6 md:border-l md:border-t-0 md:p-7 ${
+                isLightTheme
+                  ? "border-slate-200 bg-slate-50/80"
+                  : "border-white/10 bg-slate-950/80"
+              }`}
+            >
+              <div className="mb-4">
+                <h4 className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">
+                  Prévia ao vivo
+                </h4>
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  Veja como a carteira vai ficar antes de salvar.
+                </p>
+              </div>
+
+              <div
+                className={`relative flex min-h-[280px] flex-col justify-between overflow-hidden rounded-[28px] border p-5 shadow-[0_24px_64px_rgba(15,23,42,0.22)] transition-all duration-300 ${getWalletColorPreset(
+                  editWalletColorIndex
+                ).className}`}
+              >
+                <div className="pointer-events-none absolute right-0 top-0 h-28 w-28 rounded-full bg-white/10 blur-3xl" />
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-white/20" />
+
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/75">
+                      {getWalletTypeLabel(editingWallet.type)}
+                    </span>
+                    <p className="mt-1 text-xl font-black leading-tight text-white">
+                      {editWalletName.trim() || editingWallet.name}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-white/10 p-2 text-white/90 backdrop-blur-md">
+                    <WalletIcon size={18} />
+                  </div>
+                </div>
+
+                <div className="mt-6 border-t border-white/10 pt-5">
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-white/70">
+                    Saldo atual
+                  </span>
+                  <strong className="mt-1 block text-3xl font-black tracking-tight text-white tabular-nums">
+                    {formatMoney(Number(editWalletBalance || 0), editingWallet.currency)}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!editingWallet) return;
+                    setWalletToDelete(editingWallet);
+                  }}
+                  className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600 transition hover:bg-rose-100"
+                >
+                  Deletar carteira
+                </button>
+
+                <button
+                  type="button"
+                  onClick={closeWalletEditor}
+                  className={`rounded-2xl border px-4 py-3 text-sm font-bold transition ${
+                    isLightTheme
+                      ? "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                      : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                  }`}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveWalletEdit}
+                  disabled={editWalletStatus.type === "saving"}
+                  className={`rounded-2xl px-5 py-3 text-sm font-bold text-white transition ${
+                    editWalletStatus.type === "saving"
+                      ? "cursor-wait bg-slate-500"
+                      : "bg-slate-950 hover:bg-slate-800"
+                  }`}
+                >
+                  {editWalletStatus.type === "saving"
+                    ? "Salvando..."
+                    : "Salvar alterações"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
       </div>
-    </motion.div>
-  </div>
-)}
+    )}
       {walletToDelete && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-md">
           <motion.div

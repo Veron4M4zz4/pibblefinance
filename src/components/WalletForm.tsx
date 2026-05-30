@@ -3,6 +3,12 @@ import { Wallet, WalletType } from "../types";
 import { WALLET_TYPES } from "../utils/constants";
 import { formatMoney } from "../utils/formatMoney";
 import { useTheme } from "../context/ThemeProvider";
+import WalletColorPicker from "./WalletColorPicker";
+import {
+  DEFAULT_WALLET_COLOR_INDEX,
+  getWalletColorPreset,
+  WALLET_COLOR_PRESETS,
+} from "../utils/walletColors";
 
 import {
   Building2,
@@ -20,45 +26,6 @@ interface WalletFormProps {
   onAddWallet?: (wallet: Omit<Wallet, "id">) => Promise<void> | void;
 }
 
-const COLOR_PRESETS = [
-  {
-    class: "from-slate-800 to-slate-950 text-white border-slate-700",
-    bg: "bg-slate-900",
-    hover: "hover:border-slate-500",
-    name: "Charcoal",
-  },
-  {
-    class: "from-indigo-600 to-violet-800 text-white border-indigo-500",
-    bg: "bg-indigo-600",
-    hover: "hover:border-indigo-400",
-    name: "Indigo Aura",
-  },
-  {
-    class: "from-emerald-500 to-teal-700 text-white border-emerald-400",
-    bg: "bg-emerald-600",
-    hover: "hover:border-emerald-400",
-    name: "Forest Emerald",
-  },
-  {
-    class: "from-rose-500 to-pink-700 text-white border-rose-400",
-    bg: "bg-rose-500",
-    hover: "hover:border-rose-400",
-    name: "Fierce Rose",
-  },
-  {
-    class: "from-amber-400 to-orange-600 text-slate-900 border-amber-300",
-    bg: "bg-amber-500",
-    hover: "hover:border-amber-400",
-    name: "Solar Orange",
-  },
-  {
-    class: "from-sky-500 to-blue-700 text-white border-sky-400",
-    bg: "bg-sky-500",
-    hover: "hover:border-sky-400",
-    name: "Ocean Sky",
-  },
-];
-
 export default function WalletForm({
   currency = "BRL",
   onAddWallet,
@@ -68,7 +35,9 @@ export default function WalletForm({
   const [walletName, setWalletName] = useState("");
   const [walletType, setWalletType] = useState<WalletType>("checking");
   const [walletBalance, setWalletBalance] = useState("");
-  const [selectedColorIndex, setSelectedColorIndex] = useState(1);
+  const [selectedColorIndex, setSelectedColorIndex] = useState(
+    DEFAULT_WALLET_COLOR_INDEX
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   function getWalletTypeIcon(type: WalletType) {
@@ -93,7 +62,8 @@ export default function WalletForm({
 
     try {
       const safeColor =
-        COLOR_PRESETS[selectedColorIndex]?.class || COLOR_PRESETS[1].class;
+        getWalletColorPreset(selectedColorIndex)?.className ||
+        WALLET_COLOR_PRESETS[DEFAULT_WALLET_COLOR_INDEX].className;
 
       const newWallet: Omit<Wallet, "id"> = {
         name: walletName.trim(),
@@ -112,7 +82,7 @@ export default function WalletForm({
       setWalletName("");
       setWalletBalance("");
       setWalletType("checking");
-      setSelectedColorIndex(1);
+      setSelectedColorIndex(DEFAULT_WALLET_COLOR_INDEX);
     } catch (error) {
       console.error("Erro ao cadastrar carteira:", error);
     } finally {
@@ -183,39 +153,14 @@ export default function WalletForm({
           </div>
         </div>
 
-        <div>
-          <label className="mb-2 block text-ui-label">
-            Tema & Aparência
-          </label>
-
-          <div className="flex flex-wrap gap-2.5">
-            {COLOR_PRESETS.map((color, index) => (
-              <button
-                key={color.name}
-                type="button"
-                onClick={() => setSelectedColorIndex(index)}
-                className={`flex h-7 w-7 items-center justify-center rounded-full border-2 ${color.bg} ${color.hover} transition-all duration-200 ${
-                  selectedColorIndex === index
-                    ? "ring-2 ring-slate-900 ring-offset-2"
-                    : ""
-                }`}
-                title={color.name}
-              >
-                {selectedColorIndex === index && (
-                  <span
-                    className={`block h-1.5 w-1.5 rounded-full ${
-                      index === 4 ? "bg-slate-950" : "bg-white"
-                    }`}
-                  />
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
+        <WalletColorPicker
+          value={selectedColorIndex}
+          onChange={setSelectedColorIndex}
+        />
 
         <div className="pt-2">
           <div
-            className={`relative flex min-h-[140px] w-full flex-col justify-between overflow-hidden rounded-[24px] border bg-gradient-to-br p-5 shadow-lg transition-all duration-300 ${COLOR_PRESETS[selectedColorIndex].class}`}
+            className={`relative flex min-h-[140px] w-full flex-col justify-between overflow-hidden rounded-[24px] border bg-gradient-to-br p-5 shadow-lg transition-all duration-300 ${getWalletColorPreset(selectedColorIndex).className}`}
           >
             <div className="pointer-events-none absolute right-0 top-0 -mr-6 -mt-6 h-28 w-28 rounded-full bg-white/10 backdrop-blur-3xl" />
 
