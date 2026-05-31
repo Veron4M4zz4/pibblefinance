@@ -8,6 +8,7 @@ This project uses Playwright for end-to-end coverage.
 
 ```bash
 npm install
+npm run test:e2e:install
 npm run test:e2e
 ```
 
@@ -35,3 +36,9 @@ That mode switches auth, wallets, and transactions to a localStorage-backed stor
 - refresh the page without losing state
 
 Useful selectors are centralized in `src/utils/testIds.ts`.
+
+If Playwright reports that the Chromium executable is missing, run:
+
+```bash
+npm run test:e2e:install
+```

@@ -9,7 +9,7 @@ test.describe("Responsividade", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await seedE2EState(page, { authenticated: true, userName: "Verona Mazza" });
     await openE2EApp(page);
-    await expect(page.getByTestId(TEST_IDS.dashboardPage)).toBeVisible();
+    await expect(page.getByTestId(TEST_IDS.dashboardPageDesktop)).toBeVisible();
     const size = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
       viewport: window.innerWidth,
@@ -21,7 +21,7 @@ test.describe("Responsividade", () => {
     await page.setViewportSize({ width: 1366, height: 768 });
     await seedE2EState(page, { authenticated: true, userName: "Verona Mazza" });
     await openE2EApp(page);
-    await expect(page.getByTestId(TEST_IDS.dashboardPage)).toBeVisible();
+    await expect(page.getByTestId(TEST_IDS.dashboardPageDesktop)).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("data-theme", /./);
   });
 
@@ -29,12 +29,14 @@ test.describe("Responsividade", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await seedE2EState(page, { authenticated: true, userName: "Verona Mazza" });
     await openE2EApp(page);
+    await expect(page.getByTestId(TEST_IDS.dashboardPageMobile)).toBeVisible();
 
     await createWalletViaUI(page, {
       name: "Carteira Mobile",
       balance: "100,00",
       type: "checking",
       colorIndex: 1,
+      variant: "mobile",
     });
 
     await page.getByRole("button", { name: "Transações" }).click();

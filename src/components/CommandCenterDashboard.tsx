@@ -670,7 +670,7 @@ export default function DashboardCommandCenter({
 
   if (compact) {
     return (
-      <div className="space-y-4" data-testid={TEST_IDS.dashboardPage}>
+      <div className="space-y-4" data-testid={TEST_IDS.dashboardPageMobile}>
         <div className="card-premium rounded-[28px] p-5">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
@@ -1038,7 +1038,7 @@ export default function DashboardCommandCenter({
   }
 
   return (
-    <div className="space-y-6" data-testid={TEST_IDS.dashboardPage}>
+    <div className="space-y-6" data-testid={TEST_IDS.dashboardPageDesktop}>
       <div className="card-premium rounded-[32px] p-6 lg:p-8">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>

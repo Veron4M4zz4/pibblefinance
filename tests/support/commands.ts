@@ -16,7 +16,9 @@ export async function createWalletViaUI(page: Page, wallet: {
   balance: string;
   type?: string;
   colorIndex?: number;
+  variant?: "desktop" | "mobile";
 }) {
+  const walletVariant = wallet.variant || "desktop";
   await openWalletsTab(page);
   await page.getByTestId(TEST_IDS.walletNameInput).fill(wallet.name);
   await page.getByTestId(TEST_IDS.walletBalanceInput).fill(wallet.balance);
@@ -34,7 +36,13 @@ export async function createWalletViaUI(page: Page, wallet: {
   }
 
   await page.getByTestId(TEST_IDS.walletFormSubmitButton).click();
-  await expect(page.getByTestId(TEST_IDS.walletCard).first()).toContainText(
+  await expect(
+    page.getByTestId(
+      walletVariant === "mobile"
+        ? TEST_IDS.walletCardMobile
+        : TEST_IDS.walletCardDesktop
+    ).first()
+  ).toContainText(
     wallet.name
   );
 }
@@ -95,7 +103,7 @@ export async function editFirstTransactionDate(page: Page, newDate: string) {
 }
 
 export async function editFirstWalletColor(page: Page, colorIndex: number) {
-  await page.getByTestId(TEST_IDS.walletEditButton).first().click();
+  await page.getByTestId(TEST_IDS.walletEditButtonDesktop).first().click();
   await page
     .getByTestId(TEST_IDS.walletEditColorPicker)
     .getByRole("button")

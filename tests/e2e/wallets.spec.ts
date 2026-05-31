@@ -23,7 +23,7 @@ test.describe("Carteiras", () => {
       colorIndex: 1,
     });
 
-    const firstCard = page.getByTestId(TEST_IDS.walletCard).first();
+    const firstCard = page.getByTestId(TEST_IDS.walletCardDesktop).first();
     await expect(firstCard).toContainText("MercadoPago");
 
     await editFirstWalletColor(page, 4);
@@ -31,7 +31,7 @@ test.describe("Carteiras", () => {
 
     await page.reload();
     await openWalletsTab(page);
-    await expect(page.getByTestId(TEST_IDS.walletCard).first()).toHaveClass(
+    await expect(page.getByTestId(TEST_IDS.walletCardDesktop).first()).toHaveClass(
       /from-amber/
     );
   });
@@ -59,14 +59,14 @@ test.describe("Carteiras", () => {
 
     await openWalletsTab(page);
     await page.getByPlaceholder("Nome, tipo, moeda ou saldo").fill("nubank");
-    await expect(page.getByTestId(TEST_IDS.walletCard)).toHaveCount(1);
-    await expect(page.getByTestId(TEST_IDS.walletCard).first()).toContainText(
+    await expect(page.getByTestId(TEST_IDS.walletCardDesktop)).toHaveCount(1);
+    await expect(page.getByTestId(TEST_IDS.walletCardDesktop).first()).toContainText(
       "Nubank"
     );
 
-    await page.getByRole("button", { name: "Limpar filtros" }).click();
+    await page.getByRole("button", { name: "Limpar" }).click();
     await page.getByLabel("Ordenar por").selectOption("balance");
-    await expect(page.getByTestId(TEST_IDS.walletCard).first()).toContainText(
+    await expect(page.getByTestId(TEST_IDS.walletCardDesktop).first()).toContainText(
       "Nubank"
     );
   });

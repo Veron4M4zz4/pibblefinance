@@ -47,7 +47,7 @@ test.describe("Lançamentos", () => {
     await expect(page.getByText("-R$ 23,02")).toBeVisible();
 
     await openWalletsTab(page);
-    await expect(page.getByTestId(TEST_IDS.walletCard).first()).toContainText(
+    await expect(page.getByTestId(TEST_IDS.walletCardDesktop).first()).toContainText(
       "R$ 976,98"
     );
 
@@ -111,7 +111,7 @@ test.describe("Lançamentos", () => {
     });
 
     await openWalletsTab(page);
-    await expect(page.getByTestId(TEST_IDS.walletCard).first()).toContainText(
+    await expect(page.getByTestId(TEST_IDS.walletCardDesktop).first()).toContainText(
       "R$ 6.000,00"
     );
 

@@ -1179,11 +1179,11 @@ export default function App() {
                   </span>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2" data-testid={TEST_IDS.walletList}>
+                <div className="grid gap-3 sm:grid-cols-2" data-testid={TEST_IDS.walletListDesktop}>
                   {walletOverview.wallets.map((wallet) => (
                     <div
                       key={wallet.id}
-                      data-testid={TEST_IDS.walletCard}
+                      data-testid={TEST_IDS.walletCardDesktop}
                       className={`relative overflow-hidden rounded-[24px] border p-4 ${resolveWalletThemeClass(
                         wallet.color,
                         wallet.type
@@ -1230,7 +1230,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => handleStartEditWallet(wallet)}
-                          data-testid={TEST_IDS.walletEditButton}
+                          data-testid={TEST_IDS.walletEditButtonDesktop}
                           className={`rounded-xl border p-2 transition ${
                             isLightTheme
                               ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950"
@@ -1794,11 +1794,11 @@ export default function App() {
                   ) : null}
                 </div>
               ) : (
-                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" data-testid={TEST_IDS.walletList}>
+                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" data-testid={TEST_IDS.walletListMobile}>
                   {walletOverview.wallets.map((wallet) => (
                     <div
                       key={wallet.id}
-                      data-testid={TEST_IDS.walletCard}
+                      data-testid={TEST_IDS.walletCardMobile}
                       className={`relative flex h-full min-h-[220px] flex-col justify-between overflow-hidden rounded-[28px] border p-6 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg ${resolveWalletThemeClass(
                         wallet.color,
                         wallet.type
@@ -1822,7 +1822,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => handleStartEditWallet(wallet)}
-                          data-testid={TEST_IDS.walletEditButton}
+                          data-testid={TEST_IDS.walletEditButtonMobile}
                           className="rounded-xl border border-white/20 bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
                           title="Editar carteira"
                         >

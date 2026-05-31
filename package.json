@@ -11,7 +11,8 @@
     "lint": "tsc --noEmit",
     "test:e2e": "playwright test",
     "test:e2e:open": "playwright test --ui",
-    "test:e2e:ci": "playwright test --reporter=line"
+    "test:e2e:ci": "playwright test --reporter=line",
+    "test:e2e:install": "playwright install chromium"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
