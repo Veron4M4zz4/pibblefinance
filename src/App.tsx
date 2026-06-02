@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useMemo } from "react";
+import { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import type { Session } from "@supabase/supabase-js";
 
 import { Wallet, Transaction, UserProfile } from "./types";
@@ -32,7 +32,16 @@ import {
   buildWalletBalanceSummary,
 } from "./utils/financialSnapshot";
 import { parseLocalDateValue } from "./utils/date";
+import { normalizeMoneyNumber } from "./utils/numbers";
 import { TEST_IDS } from "./utils/testIds";
+import {
+  getCreditAvailable,
+  getCreditInvoiceCycle,
+  getCreditLimit,
+  getCreditUsagePercentage,
+  getCreditUsed,
+  isCreditCardWallet,
+} from "./utils/creditCards";
 import WalletColorPicker from "./components/WalletColorPicker";
 import {
   getWalletColorIndex,
@@ -42,8 +51,10 @@ import {
   resolveWalletAccentClass,
   resolveWalletThemeClass,
 } from "./utils/walletTheme";
+import type { DashboardSectionId } from "./utils/dashboardNavigation";
 
 import CommandCenterDashboard from "./components/CommandCenterDashboard";
+import CoachPibble from "./components/CoachPibble";
 import WalletForm from "./components/WalletForm";
 import TransactionForm from "./components/TransactionForm";
 import TransactionList from "./components/TransactionList";
@@ -142,6 +153,9 @@ export default function App() {
   const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null);
   const [editWalletName, setEditWalletName] = useState("");
   const [editWalletBalance, setEditWalletBalance] = useState("");
+  const [editWalletCreditLimit, setEditWalletCreditLimit] = useState("");
+  const [editWalletClosingDay, setEditWalletClosingDay] = useState("");
+  const [editWalletDueDay, setEditWalletDueDay] = useState("");
   const [editWalletColorIndex, setEditWalletColorIndex] = useState(1);
   const [editWalletStatus, setEditWalletStatus] = useState<{
     type: "idle" | "saving" | "saved";
@@ -165,10 +179,20 @@ export default function App() {
   >("recent");
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [deepDiveRequest, setDeepDiveRequest] = useState<{
+    requestId: number;
+    sectionId: DashboardSectionId;
+  } | null>(null);
+  const deepDiveRequestCounterRef = useRef(0);
   type WalletOverviewItem = Wallet & {
     createdAt: string;
     updatedAt: string;
     index: number;
+    creditLimit?: number;
+    creditUsed?: number;
+    creditAvailable?: number;
+    creditUsagePercentage?: number;
+    creditCycle?: ReturnType<typeof getCreditInvoiceCycle> | null;
   };
   type WalletBalanceUpdate = {
     walletId: string;
@@ -212,11 +236,15 @@ export default function App() {
     const skippedIds = new Set(skipWalletIds);
 
     return currentWallets.map((wallet) => {
-      if (skippedIds.has(wallet.id)) {
+      if (
+        skippedIds.has(wallet.id) ||
+        (isCreditCardWallet(wallet) &&
+          Object.prototype.hasOwnProperty.call(wallet, "creditLimit"))
+      ) {
         return wallet;
       }
 
-      let nextBalance = Number(wallet.balance || 0);
+      let nextBalance = normalizeMoneyNumber(wallet.balance, 0);
       let changed = false;
 
       if (wallet.id === transaction.walletId) {
@@ -479,7 +507,24 @@ export default function App() {
           ...wallet,
           name: String(wallet.name || "Carteira"),
           type: (wallet.type || "checking") as Wallet["type"],
-          balance: Number(wallet.balance || 0),
+          balance: isCreditCardWallet(wallet)
+            ? getCreditAvailable(wallet, transactions)
+            : normalizeMoneyNumber(wallet.balance, 0),
+          creditLimit: isCreditCardWallet(wallet)
+            ? getCreditLimit(wallet, transactions)
+            : wallet.creditLimit,
+          creditUsed: isCreditCardWallet(wallet)
+            ? getCreditUsed(wallet, transactions)
+            : 0,
+          creditAvailable: isCreditCardWallet(wallet)
+            ? getCreditAvailable(wallet, transactions)
+            : 0,
+          creditUsagePercentage: isCreditCardWallet(wallet)
+            ? getCreditUsagePercentage(wallet, transactions)
+            : 0,
+          creditCycle: isCreditCardWallet(wallet)
+            ? getCreditInvoiceCycle(wallet)
+            : null,
           createdAt: normalized.created_at || normalized.createdAt || "",
           updatedAt: normalized.updated_at || normalized.updatedAt || "",
           color: resolveWalletThemeClass(wallet.color, wallet.type),
@@ -637,7 +682,20 @@ export default function App() {
   function handleStartEditWallet(wallet: Wallet) {
     setEditingWallet(wallet);
     setEditWalletName(wallet.name);
-    setEditWalletBalance(String(wallet.balance || 0));
+    setEditWalletBalance(String(normalizeMoneyNumber(wallet.balance, 0)));
+    setEditWalletCreditLimit(
+      isCreditCardWallet(wallet)
+        ? String(getCreditLimit(wallet, transactions))
+        : ""
+    );
+    setEditWalletClosingDay(
+      isCreditCardWallet(wallet) && wallet.closingDay
+        ? String(wallet.closingDay)
+        : ""
+    );
+    setEditWalletDueDay(
+      isCreditCardWallet(wallet) && wallet.dueDay ? String(wallet.dueDay) : ""
+    );
     setEditWalletColorIndex(getWalletColorIndex(wallet.color, wallet.type));
     setEditWalletStatus({ type: "idle", message: "" });
   }
@@ -646,6 +704,9 @@ export default function App() {
     setEditingWallet(null);
     setEditWalletName("");
     setEditWalletBalance("");
+    setEditWalletCreditLimit("");
+    setEditWalletClosingDay("");
+    setEditWalletDueDay("");
     setEditWalletColorIndex(1);
     setEditWalletStatus({ type: "idle", message: "" });
   }
@@ -658,10 +719,40 @@ export default function App() {
       getWalletColorPreset(editWalletColorIndex).className ||
       getWalletColorPreset(1).className;
 
+    const isCreditWallet = isCreditCardWallet(editingWallet);
+    const safeCreditLimit = isCreditWallet
+      ? normalizeMoneyNumber(editWalletCreditLimit, 0)
+      : undefined;
+    const safeClosingDay = isCreditWallet && editWalletClosingDay.trim()
+      ? Number(editWalletClosingDay)
+      : undefined;
+    const safeDueDay = isCreditWallet && editWalletDueDay.trim()
+      ? Number(editWalletDueDay)
+      : undefined;
+
+    if (
+      isCreditWallet &&
+      ((safeClosingDay !== undefined && (!Number.isFinite(safeClosingDay) || safeClosingDay < 1 || safeClosingDay > 31)) ||
+        (safeDueDay !== undefined && (!Number.isFinite(safeDueDay) || safeDueDay < 1 || safeDueDay > 31)))
+    ) {
+      setEditWalletStatus({
+        type: "idle",
+        message: "Fechamento e vencimento devem estar entre 1 e 31.",
+      });
+      return;
+    }
+
     const updatedWallets = await updateWallet(editingWallet.id, {
       name: editWalletName.trim(),
-      balance: Number(editWalletBalance || 0),
+      balance: isCreditWallet ? 0 : normalizeMoneyNumber(editWalletBalance, 0),
       color: safeColor,
+      ...(isCreditWallet
+        ? {
+            creditLimit: safeCreditLimit,
+            closingDay: safeClosingDay,
+            dueDay: safeDueDay,
+          }
+        : {}),
     });
 
     if (!updatedWallets) {
@@ -674,7 +765,7 @@ export default function App() {
 
     setEditWalletStatus({
       type: "saved",
-      message: "Cor da carteira atualizada com sucesso.",
+      message: "Carteira atualizada com sucesso.",
     });
 
     window.setTimeout(() => {
@@ -687,6 +778,27 @@ export default function App() {
 
   async function handleAddTransaction(newTransaction: Omit<Transaction, "id">) {
     try {
+      const targetWallet = wallets.find(
+        (wallet) => wallet.id === newTransaction.walletId
+      );
+
+      if (
+        newTransaction.type === "expense" &&
+        targetWallet &&
+        isCreditCardWallet(targetWallet)
+      ) {
+        const availableCredit = getCreditAvailable(targetWallet, transactions);
+
+        if (Number(newTransaction.amount || 0) > availableCredit) {
+          console.warn("[App] cartão sem limite suficiente", {
+            walletId: targetWallet.id,
+            availableCredit,
+            amount: newTransaction.amount,
+          });
+          return false;
+        }
+      }
+
       const result = await createTransaction(newTransaction);
 
       if (!result?.transactions?.length) {
@@ -865,6 +977,21 @@ export default function App() {
       ...prev,
       currency: curr,
     }));
+  }
+
+  function handleRequestDeepDive(sectionId: DashboardSectionId) {
+    deepDiveRequestCounterRef.current += 1;
+
+    setDeepDiveRequest({
+      requestId: deepDiveRequestCounterRef.current,
+      sectionId,
+    });
+    setActiveTab("dashboard");
+    setMobileTab("home");
+  }
+
+  function handleDeepDiveHandled() {
+    setDeepDiveRequest(null);
   }
 
   function getWalletTypeLabel(type?: string) {
@@ -1157,6 +1284,9 @@ export default function App() {
               currency={profile.currency}
               compact
               onNavigateTab={(tab) => setMobileTab(tab)}
+              onRequestDeepDive={handleRequestDeepDive}
+              deepDiveRequest={deepDiveRequest}
+              onDeepDiveHandled={handleDeepDiveHandled}
             />
           )}
 
@@ -1248,7 +1378,7 @@ export default function App() {
                         </span>
                         <strong className="mt-1 block break-words text-[1.15rem] font-black leading-tight tracking-tight text-white tabular-nums">
                           {formatMoney(
-                            Number(wallet.balance || 0),
+                            normalizeMoneyNumber(wallet.balance, 0),
                             wallet.currency || profile.currency
                           )}
                         </strong>
@@ -1264,6 +1394,7 @@ export default function App() {
             <>
               <TransactionForm
                 wallets={wallets}
+                transactions={transactions}
                 onAddTransaction={handleAddTransaction}
                 currency={profile.currency}
               />
@@ -1282,6 +1413,7 @@ export default function App() {
               wallets={wallets}
               transactions={transactions}
               currency={profile.currency}
+              onRequestDeepDive={handleRequestDeepDive}
             />
           )}
 
@@ -1445,7 +1577,7 @@ export default function App() {
           <div className="card-premium rounded-[28px] p-6">
             <div className="mb-4 flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400">
-                Crédito restante
+                Crédito disponível
               </span>
               <WalletIcon size={18} className="text-violet-300" />
             </div>
@@ -1455,7 +1587,7 @@ export default function App() {
             </strong>
 
             <p className="mt-3 text-sm leading-6 text-slate-400">
-              Limite disponível nas carteiras de crédito.
+              Limite que ainda pode ser usado nas carteiras de crédito.
             </p>
           </div>
 
@@ -1651,6 +1783,9 @@ export default function App() {
             transactions={transactions}
             currency={profile.currency}
             onNavigateTab={(tab) => setActiveTab(tab)}
+            onRequestDeepDive={handleRequestDeepDive}
+            deepDiveRequest={deepDiveRequest}
+            onDeepDiveHandled={handleDeepDiveHandled}
           />
         )}
 
@@ -1845,20 +1980,70 @@ export default function App() {
                         </div>
 
                         <div className="mt-6 border-t border-white/10 pt-5">
-                          <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-white/60">
-                            Saldo atual
-                          </span>
+                          {isCreditCardWallet(wallet) ? (
+                            <div className="space-y-4">
+                              <div>
+                                <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-white/60">
+                                  Limite total
+                                </span>
 
-                          <strong className="mt-1 block max-w-full whitespace-normal break-words text-[clamp(1.35rem,2.3vw,1.9rem)] font-black leading-tight tracking-tight text-white tabular-nums">
-                            {formatMoney(
-                              Number(wallet.balance || 0),
-                              wallet.currency || profile.currency
-                            )}
-                          </strong>
+                                <strong className="mt-1 block max-w-full whitespace-normal break-words text-[clamp(1.35rem,2.3vw,1.9rem)] font-black leading-tight tracking-tight text-white tabular-nums">
+                                  {formatMoney(
+                                    Number(wallet.creditLimit ?? getCreditLimit(wallet, transactions)),
+                                    wallet.currency || profile.currency
+                                  )}
+                                </strong>
+                              </div>
 
-                          <p className="mt-2 max-w-[28ch] text-xs leading-5 text-white/70">
-                            Carteira ativa para acompanhar entradas, saídas e crédito.
-                          </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="rounded-2xl border border-white/10 bg-white/10 p-3">
+                                  <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-white/60">
+                                    Disponível
+                                  </span>
+                                  <strong className="mt-1 block text-sm font-black text-white tabular-nums">
+                                    {formatMoney(
+                                      Number(wallet.creditAvailable ?? getCreditAvailable(wallet, transactions)),
+                                      wallet.currency || profile.currency
+                                    )}
+                                  </strong>
+                                </div>
+
+                                <div className="rounded-2xl border border-white/10 bg-white/10 p-3">
+                                  <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-white/60">
+                                    Uso
+                                  </span>
+                                  <strong className="mt-1 block text-sm font-black text-white tabular-nums">
+                                    {Math.round(
+                                      Number(wallet.creditUsagePercentage ?? getCreditUsagePercentage(wallet, transactions))
+                                    )}%
+                                  </strong>
+                                </div>
+                              </div>
+
+                              <p className="max-w-[28ch] text-xs leading-5 text-white/70">
+                                {wallet.creditCycle?.closingDay || wallet.creditCycle?.dueDay
+                                  ? `Fechamento ${wallet.creditCycle?.closingDay || "-"} · Vencimento ${wallet.creditCycle?.dueDay || "-"}`
+                                  : "Cartão pronto para acompanhar compras e faturas."}
+                              </p>
+                            </div>
+                          ) : (
+                            <>
+                              <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-white/60">
+                                Saldo atual
+                              </span>
+
+                              <strong className="mt-1 block max-w-full whitespace-normal break-words text-[clamp(1.35rem,2.3vw,1.9rem)] font-black leading-tight tracking-tight text-white tabular-nums">
+                                {formatMoney(
+                                  normalizeMoneyNumber(wallet.balance, 0),
+                                  wallet.currency || profile.currency
+                                )}
+                              </strong>
+
+                              <p className="mt-2 max-w-[28ch] text-xs leading-5 text-white/70">
+                                Carteira ativa para acompanhar entradas, saídas e crédito.
+                              </p>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1873,6 +2058,7 @@ export default function App() {
           <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
             <TransactionForm
               wallets={wallets}
+              transactions={transactions}
               onAddTransaction={handleAddTransaction}
               currency={profile.currency}
             />
@@ -1993,7 +2179,7 @@ export default function App() {
                   Personalizar carteira
                 </h3>
                 <p className="mt-2 text-sm leading-6 text-ui-muted">
-                  Ajuste a aparência da carteira sem alterar nome, tipo ou saldo.
+                  Ajuste nome, cor e, no caso dos cartões, limite e ciclo da fatura.
                 </p>
               </div>
 
@@ -2009,7 +2195,13 @@ export default function App() {
                 </div>
               ) : null}
 
-              <div className="mb-5 grid gap-3 sm:grid-cols-3">
+              <div
+                className={`mb-5 grid gap-3 ${
+                  isCreditCardWallet(editingWallet)
+                    ? "sm:grid-cols-2 xl:grid-cols-4"
+                    : "sm:grid-cols-3"
+                }`}
+              >
                 <div
                   className={`rounded-2xl border p-3 ${
                     isLightTheme
@@ -2025,35 +2217,99 @@ export default function App() {
                   </strong>
                 </div>
 
-                <div
-                  className={`rounded-2xl border p-3 ${
-                    isLightTheme
-                      ? "border-slate-200 bg-white"
-                      : "border-white/10 bg-white/5"
-                  }`}
-                >
-                  <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
-                    Saldo
-                  </span>
-                  <strong className="mt-1 block truncate text-sm font-black text-ui-title tabular-nums">
-                    {formatMoney(Number(editWalletBalance || 0), editingWallet.currency)}
-                  </strong>
-                </div>
+                {isCreditCardWallet(editingWallet) ? (
+                  <>
+                    <div
+                      className={`rounded-2xl border p-3 ${
+                        isLightTheme
+                          ? "border-slate-200 bg-white"
+                          : "border-white/10 bg-white/5"
+                      }`}
+                    >
+                      <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                        Limite
+                      </span>
+                      <strong className="mt-1 block truncate text-sm font-black text-ui-title tabular-nums">
+                        {formatMoney(
+                          Number(editWalletCreditLimit || 0),
+                          editingWallet.currency
+                        )}
+                      </strong>
+                    </div>
 
-                <div
-                  className={`rounded-2xl border p-3 ${
-                    isLightTheme
-                      ? "border-slate-200 bg-white"
-                      : "border-white/10 bg-white/5"
-                  }`}
-                >
-                  <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
-                    Tipo
-                  </span>
-                  <strong className="mt-1 block truncate text-sm font-black text-ui-title">
-                    {getWalletTypeLabel(editingWallet.type)}
-                  </strong>
-                </div>
+                    <div
+                      className={`rounded-2xl border p-3 ${
+                        isLightTheme
+                          ? "border-slate-200 bg-white"
+                          : "border-white/10 bg-white/5"
+                      }`}
+                    >
+                      <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                        Disponível
+                      </span>
+                      <strong className="mt-1 block truncate text-sm font-black text-ui-title tabular-nums">
+                        {formatMoney(
+                          getCreditAvailable(editingWallet, transactions),
+                          editingWallet.currency
+                        )}
+                      </strong>
+                    </div>
+
+                    <div
+                      className={`rounded-2xl border p-3 ${
+                        isLightTheme
+                          ? "border-slate-200 bg-white"
+                          : "border-white/10 bg-white/5"
+                      }`}
+                    >
+                      <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                        Fatura
+                      </span>
+                      <strong className="mt-1 block truncate text-sm font-black text-ui-title">
+                        {editWalletClosingDay || editWalletDueDay
+                          ? `${editWalletClosingDay || "-"} / ${
+                              editWalletDueDay || "-"
+                            }`
+                          : "Não definida"}
+                      </strong>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div
+                      className={`rounded-2xl border p-3 ${
+                        isLightTheme
+                          ? "border-slate-200 bg-white"
+                          : "border-white/10 bg-white/5"
+                      }`}
+                    >
+                      <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                        Saldo
+                      </span>
+                      <strong className="mt-1 block truncate text-sm font-black text-ui-title tabular-nums">
+                        {formatMoney(
+                          Number(editWalletBalance || 0),
+                          editingWallet.currency
+                        )}
+                      </strong>
+                    </div>
+
+                    <div
+                      className={`rounded-2xl border p-3 ${
+                        isLightTheme
+                          ? "border-slate-200 bg-white"
+                          : "border-white/10 bg-white/5"
+                      }`}
+                    >
+                      <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                        Tipo
+                      </span>
+                      <strong className="mt-1 block truncate text-sm font-black text-ui-title">
+                        {getWalletTypeLabel(editingWallet.type)}
+                      </strong>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="space-y-5">
@@ -2066,6 +2322,55 @@ export default function App() {
                   data-testid={TEST_IDS.walletEditColorPicker}
                 />
               </div>
+
+              {isCreditCardWallet(editingWallet) ? (
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-ui-label">
+                      Limite total ({editingWallet.currency})
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      className="field-premium w-full rounded-2xl px-3.5 py-3 text-sm outline-none transition-all duration-200"
+                      value={editWalletCreditLimit}
+                      onChange={(event) =>
+                        setEditWalletCreditLimit(event.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-ui-label">
+                      Fechamento / Vencimento
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={31}
+                        placeholder="Fech."
+                        className="field-premium w-full rounded-2xl px-3.5 py-3 text-sm outline-none transition-all duration-200"
+                        value={editWalletClosingDay}
+                        onChange={(event) =>
+                          setEditWalletClosingDay(event.target.value)
+                        }
+                      />
+                      <input
+                        type="number"
+                        min={1}
+                        max={31}
+                        placeholder="Venc."
+                        className="field-premium w-full rounded-2xl px-3.5 py-3 text-sm outline-none transition-all duration-200"
+                        value={editWalletDueDay}
+                        onChange={(event) =>
+                          setEditWalletDueDay(event.target.value)
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div
@@ -2107,13 +2412,42 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="mt-6 border-t border-white/10 pt-5">
-                  <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-white/70">
-                    Saldo atual
-                  </span>
-                  <strong className="mt-1 block text-3xl font-black tracking-tight text-white tabular-nums">
-                    {formatMoney(Number(editWalletBalance || 0), editingWallet.currency)}
-                  </strong>
+                <div className="mt-6 grid gap-3 border-t border-white/10 pt-5 sm:grid-cols-2">
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-white/70">
+                      {isCreditCardWallet(editingWallet)
+                        ? "Limite total"
+                        : "Saldo atual"}
+                    </span>
+                    <strong className="mt-1 block text-3xl font-black tracking-tight text-white tabular-nums">
+                      {isCreditCardWallet(editingWallet)
+                        ? formatMoney(
+                            Number(editWalletCreditLimit || 0),
+                            editingWallet.currency
+                          )
+                        : formatMoney(
+                            Number(editWalletBalance || 0),
+                            editingWallet.currency
+                          )}
+                    </strong>
+                  </div>
+
+                  {isCreditCardWallet(editingWallet) ? (
+                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
+                      <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-white/70">
+                        Disponível
+                      </span>
+                      <strong className="mt-1 block text-2xl font-black tracking-tight text-white tabular-nums">
+                        {formatMoney(
+                          getCreditAvailable(editingWallet, transactions),
+                          editingWallet.currency
+                        )}
+                      </strong>
+                      <p className="mt-2 text-xs leading-5 text-white/75">
+                        Uso atual: {Math.round(getCreditUsagePercentage(editingWallet, transactions))}%
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -2221,6 +2555,9 @@ export default function App() {
                   setEditingWallet(null);
                   setEditWalletName("");
                   setEditWalletBalance("");
+                  setEditWalletCreditLimit("");
+                  setEditWalletClosingDay("");
+                  setEditWalletDueDay("");
                 }}
                 className="rounded-2xl bg-rose-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-rose-500"
               >

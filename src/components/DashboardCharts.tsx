@@ -24,6 +24,7 @@ import {
   getTransactionWalletId,
   isCreditWallet,
 } from "../utils/financialSnapshot";
+import { type DashboardSectionId } from "../utils/dashboardNavigation";
 import {
   PieChart as PieIcon,
   BarChart3,
@@ -36,6 +37,7 @@ interface DashboardChartsProps {
   transactions?: Transaction[];
   wallets?: Wallet[];
   currency: "BRL" | "USD" | "EUR";
+  highlightedSectionIds?: DashboardSectionId[];
 }
 
 const COLORS = {
@@ -83,6 +85,7 @@ export default function DashboardCharts({
   transactions = [],
   wallets = [],
   currency,
+  highlightedSectionIds = [],
 }: DashboardChartsProps) {
   const { resolvedTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<"overview" | "categories">(
@@ -98,6 +101,15 @@ export default function DashboardCharts({
   const cardToneClass = isLight
     ? "border-slate-200/80 bg-white/88 shadow-[0_16px_42px_rgba(15,23,42,0.08)]"
     : "border-white/10 bg-white/5";
+  const highlightRingClass = isLight
+    ? "ring-2 ring-indigo-400/35 shadow-[0_0_0_1px_rgba(99,102,241,0.16),0_0_42px_rgba(99,102,241,0.18)]"
+    : "ring-2 ring-indigo-300/35 shadow-[0_0_0_1px_rgba(129,140,248,0.18),0_0_42px_rgba(99,102,241,0.22)]";
+
+  function getSectionClass(sectionId: DashboardSectionId, baseClassName: string) {
+    const isHighlighted = highlightedSectionIds.includes(sectionId);
+
+    return `${baseClassName} scroll-mt-28 transition-all duration-500 ${isHighlighted ? highlightRingClass : ""}`;
+  }
 
   const financialOverview = useMemo(
     () => buildWalletBalanceSummary(wallets, transactions),
@@ -280,7 +292,10 @@ export default function DashboardCharts({
         </div>
       </div>
 
-      <div className="mb-5 grid gap-3 lg:grid-cols-3">
+      <div
+        id="dashboard-summary"
+        className={getSectionClass("dashboard-summary", "mb-5 grid gap-3 lg:grid-cols-3")}
+      >
         <div className={`rounded-2xl p-4 ${cardToneClass}`}>
           <span className="text-ui-label">
             Resumo rápido
@@ -357,7 +372,13 @@ export default function DashboardCharts({
 
       <div className="min-h-[380px] w-full overflow-hidden">
         {activeTab === "overview" ? (
-          <div className={`h-[360px] w-full rounded-[24px] p-4 ${cardToneClass}`}>
+          <div
+            id="financial-evolution-chart"
+            className={getSectionClass(
+              "financial-evolution-chart",
+              `h-[360px] w-full rounded-[24px] p-4 ${cardToneClass}`
+            )}
+          >
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-sm font-black text-ui-title">
@@ -449,7 +470,13 @@ export default function DashboardCharts({
           </div>
         ) : hasExpenses ? (
           <div className="grid min-h-[360px] grid-cols-1 gap-6 xl:grid-cols-[0.75fr_1.25fr]">
-            <div className="relative flex min-h-[320px] items-center justify-center">
+            <div
+              id="expense-categories-chart"
+              className={getSectionClass(
+                "expense-categories-chart",
+                "relative flex min-h-[320px] items-center justify-center rounded-[24px] p-3"
+              )}
+            >
               <ResponsiveContainer width="100%" height={320}>
                 <PieChart>
                   <Pie

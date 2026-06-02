@@ -18,6 +18,10 @@ import { useTheme } from "../context/ThemeProvider";
 import { buildFinancialSnapshot } from "../utils/financialSnapshot";
 import { formatMoney } from "../utils/formatMoney";
 import { TEST_IDS } from "../utils/testIds";
+import {
+  resolveDashboardSectionFromInsight,
+  type DashboardSectionId,
+} from "../utils/dashboardNavigation";
 
 interface WalletType {
   id: string;
@@ -40,6 +44,7 @@ interface Props {
   wallets: WalletType[];
   transactions: TransactionType[];
   currency: "BRL" | "USD" | "EUR";
+  onRequestDeepDive?: (sectionId: DashboardSectionId) => void;
 }
 
 interface MessageItem {
@@ -73,14 +78,17 @@ export default function CoachPibble({
   wallets,
   transactions,
   currency,
+  onRequestDeepDive,
 }: Props) {
   const { resolvedTheme } = useTheme();
   const isLight = resolvedTheme === "light";
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeepDiveLoading, setIsDeepDiveLoading] = useState(false);
   const [chatMessages, setChatMessages] = useState<MessageItem[]>([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const deepDiveTimerRef = useRef<number | null>(null);
 
   const normalizedTransactions = useMemo(
     () => transactions.map(getTransactionAsFinancialItem) as any,
@@ -98,6 +106,12 @@ export default function CoachPibble({
       block: "end",
     });
   }, [chatMessages, isLoading]);
+
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(deepDiveTimerRef.current ?? undefined);
+    };
+  }, []);
 
   async function handleSendMessage(customMessage?: string) {
     const userText = (customMessage || message).trim();
@@ -178,6 +192,18 @@ export default function CoachPibble({
       : analysis.mainInsight.tone === "warning"
       ? AlertTriangle
       : CheckCircle2;
+
+  function handleDeepDiveClick() {
+    if (!onRequestDeepDive) return;
+
+    setIsDeepDiveLoading(true);
+    onRequestDeepDive(resolveDashboardSectionFromInsight(analysis.mainInsight));
+
+    window.clearTimeout(deepDiveTimerRef.current ?? undefined);
+    deepDiveTimerRef.current = window.setTimeout(() => {
+      setIsDeepDiveLoading(false);
+    }, 250);
+  }
 
   return (
     <>
@@ -276,6 +302,20 @@ export default function CoachPibble({
           <p className={`text-xs leading-6 ${isLight ? "text-slate-700" : "text-white/80"}`}>
             {analysis.mainInsight.text}
           </p>
+
+          <button
+            type="button"
+            onClick={handleDeepDiveClick}
+            disabled={!onRequestDeepDive || isDeepDiveLoading}
+            className={`mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ${
+              isLight
+                ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                : "border-indigo-400/20 bg-indigo-500/10 text-indigo-100 hover:bg-indigo-500/15"
+            }`}
+          >
+            <Sparkles size={14} />
+            {isDeepDiveLoading ? "Abrindo..." : "Ver descrição profunda"}
+          </button>
         </div>
 
         <div className="relative mt-4 grid gap-3 sm:grid-cols-3">
