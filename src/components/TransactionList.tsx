@@ -585,6 +585,25 @@ export default function TransactionList({
                         </span>
                       </div>
 
+                      {String(walletMap[walletId]?.type || "").toLowerCase() === "credit" ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] ${
+                            isLight
+                              ? "border-violet-200 bg-violet-50 text-violet-700"
+                              : "border-violet-400/20 bg-violet-500/10 text-violet-200"
+                          }`}>
+                            Crédito
+                          </span>
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] ${
+                            isLight
+                              ? "border-slate-200 bg-white text-slate-600"
+                              : "border-white/10 bg-white/6 text-slate-400"
+                          }`}>
+                            Cartão: {sourceWalletName}
+                          </span>
+                        </div>
+                      ) : null}
+
                       <p className={`mt-1 text-xs leading-5 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
                         {transaction.type === "transfer" ? (
                           <span>

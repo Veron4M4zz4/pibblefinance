@@ -21,3 +21,10 @@ export function parseLocalNumber(value: string | number | null | undefined) {
   return Number(normalized);
 }
 
+export function normalizeMoneyNumber(
+  value: string | number | null | undefined,
+  fallback = 0
+) {
+  const parsed = parseLocalNumber(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}

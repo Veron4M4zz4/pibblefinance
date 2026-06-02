@@ -15,7 +15,10 @@ export interface Wallet {
   id: string;
   name: string;
   type: WalletType;
-  balance: number; // initial balance or baseline
+  balance: number; // current balance, defaults to 0 for new wallets
+  creditLimit?: number;
+  closingDay?: number;
+  dueDay?: number;
   color: string; // Tailwind color class scheme (e.g., 'indigo', 'emerald', 'sky', 'rose')
   currency: 'BRL' | 'USD' | 'EUR';
 }

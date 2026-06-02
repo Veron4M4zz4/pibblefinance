@@ -18,14 +18,24 @@ import {
   formatLocalDateInputValue,
   normalizeLocalDateValue,
 } from "../utils/date";
+import { formatMoney } from "../utils/formatMoney";
 import { parseLocalNumber } from "../utils/numbers";
 import { TEST_IDS } from "../utils/testIds";
+import {
+  getCreditAvailable,
+  getCreditUsagePercentage,
+  isCreditCardWallet,
+} from "../utils/creditCards";
 
 interface TransactionFormProps {
   wallets: Wallet[];
-  onAddTransaction: (transaction: Omit<Transaction, "id">) => Promise<boolean> | boolean;
+  transactions: Transaction[];
+  onAddTransaction: (
+    transaction: Omit<Transaction, "id">
+  ) => Promise<boolean> | boolean;
   currency: "BRL" | "USD" | "EUR";
 }
+
 function getWalletTypeLabel(type?: string) {
   if (type === "credit") return "Crédito";
   if (type === "debit") return "Débito";
@@ -43,6 +53,7 @@ function getWalletOptionLabel(wallet: Wallet) {
 
 export default function TransactionForm({
   wallets,
+  transactions,
   onAddTransaction,
   currency,
 }: TransactionFormProps) {
@@ -67,6 +78,31 @@ export default function TransactionForm({
       (cat) => cat.type === type || cat.type === "any"
     );
   }, [type]);
+
+  const selectedWallet = useMemo(
+    () => wallets.find((wallet) => wallet.id === walletId) || null,
+    [wallets, walletId]
+  );
+
+  const selectedWalletCreditAvailable = useMemo(() => {
+    if (!selectedWallet || !isCreditCardWallet(selectedWallet)) return 0;
+    return getCreditAvailable(selectedWallet, transactions);
+  }, [selectedWallet, transactions]);
+
+  const selectedWalletCreditUsage = useMemo(() => {
+    if (!selectedWallet || !isCreditCardWallet(selectedWallet)) return 0;
+    return getCreditUsagePercentage(selectedWallet, transactions);
+  }, [selectedWallet, transactions]);
+
+  const amountValue = parseLocalNumber(amount);
+  const isCreditPurchase =
+    type === "expense" &&
+    !!selectedWallet &&
+    isCreditCardWallet(selectedWallet);
+  const isOverCreditLimit =
+    isCreditPurchase &&
+    Number.isFinite(amountValue) &&
+    amountValue > selectedWalletCreditAvailable;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -99,6 +135,17 @@ export default function TransactionForm({
       setSubmitStatus({
         type: "error",
         message: "O valor informado não é válido.",
+      });
+      return;
+    }
+
+    if (isCreditPurchase && safeAmount > selectedWalletCreditAvailable) {
+      setSubmitStatus({
+        type: "error",
+        message: `Você só tem ${formatMoney(
+          selectedWalletCreditAvailable,
+          currency
+        )} de limite disponível nesse cartão.`,
       });
       return;
     }
@@ -220,11 +267,16 @@ export default function TransactionForm({
       return !!toWalletId && walletId !== toWalletId;
     }
 
+    if (isOverCreditLimit) return false;
+
     return !!category;
-  }, [amount, walletId, toWalletId, category, type]);
+  }, [amount, walletId, toWalletId, category, type, isOverCreditLimit]);
 
   return (
-    <div className="card-premium rounded-[28px] p-6" data-testid={TEST_IDS.transactionForm}>
+    <div
+      className="card-premium rounded-[28px] p-6"
+      data-testid={TEST_IDS.transactionForm}
+    >
       <div className="mb-6">
         <h3 className="font-display flex items-center gap-2 text-lg font-bold text-ui-title">
           <PlusCircle className="text-emerald-300" size={20} />
@@ -292,9 +344,7 @@ export default function TransactionForm({
         </div>
 
         <div>
-          <label className="mb-1 block text-ui-label">
-            Valor ({currency})
-          </label>
+          <label className="mb-1 block text-ui-label">Valor ({currency})</label>
 
           <div className="relative">
             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono text-sm font-semibold text-ui-muted">
@@ -337,13 +387,34 @@ export default function TransactionForm({
                 </option>
               ))}
             </select>
+
+            {isCreditPurchase ? (
+              <div
+                className={`mt-2 rounded-2xl border px-3 py-2 text-xs ${
+                  isLight
+                    ? "border-slate-200 bg-slate-50 text-slate-600"
+                    : "border-white/10 bg-white/5 text-slate-300"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold">Limite disponível</span>
+                  <strong className="font-mono text-sm font-black tabular-nums">
+                    {formatMoney(selectedWalletCreditAvailable, currency)}
+                  </strong>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <span className="font-semibold">Uso do cartão</span>
+                  <strong className="font-mono text-sm font-black tabular-nums">
+                    {Math.round(selectedWalletCreditUsage)}%
+                  </strong>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {type === "transfer" ? (
             <div>
-              <label className="mb-1 block text-ui-label">
-                Destino
-              </label>
+              <label className="mb-1 block text-ui-label">Destino</label>
 
               <select
                 data-testid={TEST_IDS.transactionCategorySelect}
@@ -367,9 +438,7 @@ export default function TransactionForm({
             </div>
           ) : (
             <div>
-              <label className="mb-1 block text-ui-label">
-                Categoria
-              </label>
+              <label className="mb-1 block text-ui-label">Categoria</label>
 
               <select
                 className={`field-premium w-full rounded-2xl px-3 py-3 text-xs outline-none transition-all ${
@@ -393,9 +462,7 @@ export default function TransactionForm({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-ui-label">
-              Data
-            </label>
+            <label className="mb-1 block text-ui-label">Data</label>
 
             <input
               type="date"
@@ -410,9 +477,7 @@ export default function TransactionForm({
           </div>
 
           <div>
-            <label className="mb-1 block text-ui-label">
-              Descrição / Nota
-            </label>
+            <label className="mb-1 block text-ui-label">Descrição / Nota</label>
 
             <input
               type="text"
@@ -428,9 +493,7 @@ export default function TransactionForm({
         {type !== "transfer" && category && (
           <div
             className={`flex items-center gap-2.5 rounded-2xl border p-3 ${
-              isLight
-                ? "border-slate-200 bg-white"
-                : "border-white/10 bg-white/5"
+              isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"
             }`}
           >
             <div
@@ -442,15 +505,25 @@ export default function TransactionForm({
               <CategoryIcon
                 name={
                   PRESET_CATEGORIES.find((cat) => cat.id === category)?.icon ||
-                  "Ellipsis"
+                  "CircleDot"
                 }
                 size={14}
               />
             </div>
 
-            <div className="text-xs font-medium text-ui-muted">
-              Classificado em:{" "}
-              <strong className={isLight ? "text-slate-900" : "text-slate-100"}>
+            <div className="min-w-0">
+              <p
+                className={`text-xs font-semibold uppercase tracking-[0.2em] ${
+                  isLight ? "text-slate-500" : "text-slate-400"
+                }`}
+              >
+                Categoria selecionada
+              </p>
+              <strong
+                className={`block truncate text-sm font-bold ${
+                  isLight ? "text-slate-900" : "text-white"
+                }`}
+              >
                 {PRESET_CATEGORIES.find((cat) => cat.id === category)?.name ||
                   category}
               </strong>
@@ -458,47 +531,63 @@ export default function TransactionForm({
           </div>
         )}
 
-        {submitStatus.message ? (
+        {isCreditPurchase ? (
           <div
-            className={`rounded-2xl border px-4 py-3 text-sm font-medium ${
+            className={`rounded-2xl border px-4 py-3 text-sm ${
+              isOverCreditLimit
+                ? isLight
+                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  : "border-rose-400/20 bg-rose-500/10 text-rose-100"
+                : isLight
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-emerald-400/20 bg-emerald-500/10 text-emerald-100"
+            }`}
+          >
+            {isOverCreditLimit ? (
+              <>
+                Esse valor ultrapassa o limite disponível. Ajuste o valor ou
+                escolha outro cartão.
+              </>
+            ) : (
+              <>
+                Compra aprovada dentro do limite disponível do cartão.
+              </>
+            )}
+          </div>
+        ) : null}
+
+        {submitStatus.message && (
+          <div
+            className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
               submitStatus.type === "error"
-                ? "border-rose-400/20 bg-rose-500/10 text-rose-100"
+                ? isLight
+                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  : "border-rose-400/20 bg-rose-500/10 text-rose-100"
                 : submitStatus.type === "success"
-                ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-100"
-                : "border-indigo-400/20 bg-indigo-500/10 text-indigo-100"
+                ? isLight
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-emerald-400/20 bg-emerald-500/10 text-emerald-100"
+                : isLight
+                ? "border-slate-200 bg-slate-50 text-slate-600"
+                : "border-white/10 bg-white/5 text-slate-300"
             }`}
           >
             {submitStatus.message}
           </div>
-        ) : null}
+        )}
 
         <button
           type="submit"
           data-testid={TEST_IDS.transactionSubmitButton}
-          disabled={!isFormValid || isSubmitting}
-          className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-3 text-xs font-semibold shadow-xs transition-all duration-200 ${
-            isFormValid && !isSubmitting
-              ? isLight
-                ? "border border-slate-200 bg-slate-900 text-white hover:bg-slate-800 active:scale-97"
-                : "bg-white text-slate-950 hover:bg-slate-100 active:scale-97"
-              : isLight
-              ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
-              : "cursor-not-allowed bg-white/10 text-slate-500"
+          disabled={isSubmitting || !isFormValid}
+          className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold shadow-md transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
+            isLight
+              ? "border border-slate-200 bg-slate-900 text-white hover:bg-slate-800"
+              : "bg-white text-slate-950 hover:bg-slate-100"
           }`}
         >
-          {type === "transfer" ? (
-            <RefreshCw size={14} className="animate-spin-slow" />
-          ) : (
-            <PlusCircle size={14} />
-          )}
-
-          {isSubmitting
-            ? "Salvando..."
-            : type === "transfer"
-            ? "Realizar Transferência"
-            : type === "income"
-            ? "Registrar Entrada"
-            : "Registrar Saída"}
+          <PlusCircle size={16} />
+          {isSubmitting ? "Registrando..." : "Registrar Lançamento"}
         </button>
       </form>
     </div>

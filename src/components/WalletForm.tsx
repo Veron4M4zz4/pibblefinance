@@ -38,10 +38,15 @@ export default function WalletForm({
   const [walletName, setWalletName] = useState("");
   const [walletType, setWalletType] = useState<WalletType>("checking");
   const [walletBalance, setWalletBalance] = useState("");
+  const [creditLimit, setCreditLimit] = useState("");
+  const [closingDay, setClosingDay] = useState("");
+  const [dueDay, setDueDay] = useState("");
   const [selectedColorIndex, setSelectedColorIndex] = useState(
     DEFAULT_WALLET_COLOR_INDEX
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isCreditWallet = walletType === "credit";
 
   function getWalletTypeIcon(type: WalletType) {
     switch (type) {
@@ -61,11 +66,25 @@ export default function WalletForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!walletName.trim() || !walletBalance || isSubmitting) return;
+    if (!walletName.trim() || isSubmitting) return;
 
-    const safeBalance = parseLocalNumber(walletBalance);
+    const trimmedBalance = walletBalance.trim();
+    const safeBalance = trimmedBalance ? parseLocalNumber(trimmedBalance) : 0;
+    const trimmedCreditLimit = creditLimit.trim();
+    const safeCreditLimit = trimmedCreditLimit ? parseLocalNumber(trimmedCreditLimit) : 0;
+    const safeClosingDay = closingDay.trim() ? Number(closingDay) : undefined;
+    const safeDueDay = dueDay.trim() ? Number(dueDay) : undefined;
 
-    if (!Number.isFinite(safeBalance)) {
+    const isValidDay =
+      (value?: number) =>
+        value === undefined || (Number.isFinite(value) && value >= 1 && value <= 31);
+
+    if (
+      !Number.isFinite(safeBalance) ||
+      !Number.isFinite(safeCreditLimit) ||
+      !isValidDay(safeClosingDay) ||
+      !isValidDay(safeDueDay)
+    ) {
       return;
     }
 
@@ -79,9 +98,16 @@ export default function WalletForm({
       const newWallet: Omit<Wallet, "id"> = {
         name: walletName.trim(),
         type: walletType,
-        balance: safeBalance,
+        balance: isCreditWallet ? 0 : safeBalance,
         color: safeColor,
         currency,
+        ...(isCreditWallet
+          ? {
+              creditLimit: safeCreditLimit,
+              closingDay: safeClosingDay,
+              dueDay: safeDueDay,
+            }
+          : {}),
       };
 
       if (onAddWallet) {
@@ -92,6 +118,9 @@ export default function WalletForm({
 
       setWalletName("");
       setWalletBalance("");
+      setCreditLimit("");
+      setClosingDay("");
+      setDueDay("");
       setWalletType("checking");
       setSelectedColorIndex(DEFAULT_WALLET_COLOR_INDEX);
     } catch (error) {
@@ -102,6 +131,19 @@ export default function WalletForm({
   }
 
   const walletPreviewBalance = parseLocalNumber(walletBalance);
+  const safePreviewBalance = Number.isFinite(walletPreviewBalance)
+    ? walletPreviewBalance
+    : 0;
+  const walletPreviewCreditLimit = parseLocalNumber(creditLimit);
+  const safePreviewCreditLimit = Number.isFinite(walletPreviewCreditLimit)
+    ? walletPreviewCreditLimit
+    : 0;
+  const trimmedWalletBalance = walletBalance.trim();
+  const isWalletBalanceValid =
+    !trimmedWalletBalance ||
+    Number.isFinite(parseLocalNumber(trimmedWalletBalance));
+  const isCreditLimitValid =
+    !creditLimit.trim() || Number.isFinite(parseLocalNumber(creditLimit));
 
   return (
     <div className="card-premium rounded-[28px] p-6" data-testid={TEST_IDS.walletForm}>
@@ -151,23 +193,79 @@ export default function WalletForm({
             </select>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-ui-label">
-              Saldo Inicial ({currency})
-            </label>
+          {isCreditWallet ? (
+            <div>
+              <label className="mb-1.5 block text-ui-label">
+                Limite total ({currency})
+              </label>
 
-            <input
-              type="text"
-              data-testid={TEST_IDS.walletBalanceInput}
-              inputMode="decimal"
-              placeholder="Ex. 1500,00"
-              className="field-premium w-full rounded-2xl px-3.5 py-3 font-mono text-sm outline-none transition-all duration-200 placeholder:text-slate-500"
-              value={walletBalance}
-              onChange={(e) => setWalletBalance(e.target.value)}
-              required
-            />
-          </div>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="Ex. 5000,00"
+                className="field-premium w-full rounded-2xl px-3.5 py-3 font-mono text-sm outline-none transition-all duration-200 placeholder:text-slate-500"
+                value={creditLimit}
+                onChange={(e) => setCreditLimit(e.target.value)}
+              />
+              <p className="mt-1.5 text-xs text-ui-muted">
+                Limite do cartão. Se deixar vazio, o cartão nasce com limite zero.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label className="mb-1.5 block text-ui-label">
+                Saldo Inicial ({currency})
+              </label>
+
+              <input
+                type="text"
+                data-testid={TEST_IDS.walletBalanceInput}
+                inputMode="decimal"
+                placeholder="Ex. 1500,00"
+                className="field-premium w-full rounded-2xl px-3.5 py-3 font-mono text-sm outline-none transition-all duration-200 placeholder:text-slate-500"
+                value={walletBalance}
+                onChange={(e) => setWalletBalance(e.target.value)}
+              />
+              <p className="mt-1.5 text-xs text-ui-muted">
+                Saldo inicial opcional. Você poderá adicionar valores depois.
+              </p>
+            </div>
+          )}
         </div>
+
+        {isCreditWallet ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-ui-label">
+                Fechamento da fatura
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={31}
+                placeholder="Ex. 10"
+                className="field-premium w-full rounded-2xl px-3.5 py-3 text-sm outline-none transition-all duration-200 placeholder:text-slate-500"
+                value={closingDay}
+                onChange={(e) => setClosingDay(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-ui-label">
+                Vencimento da fatura
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={31}
+                placeholder="Ex. 18"
+                className="field-premium w-full rounded-2xl px-3.5 py-3 text-sm outline-none transition-all duration-200 placeholder:text-slate-500"
+                value={dueDay}
+                onChange={(e) => setDueDay(e.target.value)}
+              />
+            </div>
+          </div>
+        ) : null}
 
         <WalletColorPicker
           value={selectedColorIndex}
@@ -199,12 +297,20 @@ export default function WalletForm({
 
             <div className="mt-4">
               <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-white/70">
-                Saldo Estimado
+                {isCreditWallet ? "Limite total" : "Saldo Estimado"}
               </span>
 
               <span className="font-mono text-2xl font-bold tracking-tight text-white">
-                {formatMoney(Number.isFinite(walletPreviewBalance) ? walletPreviewBalance : 0, currency)}
+                {isCreditWallet
+                  ? formatMoney(safePreviewCreditLimit, currency)
+                  : formatMoney(safePreviewBalance, currency)}
               </span>
+
+              {isCreditWallet ? (
+                <p className="mt-2 text-xs leading-5 text-white/75">
+                  Cartões começam com saldo operacional zerado e limite separado.
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
@@ -214,8 +320,7 @@ export default function WalletForm({
           data-testid={TEST_IDS.walletFormSubmitButton}
           disabled={
             !walletName.trim() ||
-            !walletBalance ||
-            !Number.isFinite(parseLocalNumber(walletBalance)) ||
+            (!isCreditWallet ? !isWalletBalanceValid : !isCreditLimitValid) ||
             isSubmitting
           }
           className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold shadow-md transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${

@@ -1,5 +1,13 @@
 import type { Transaction, Wallet } from "../types";
 import { parseLocalDateValue } from "./date";
+import { normalizeMoneyNumber } from "./numbers";
+import {
+  getCreditAvailable,
+  getCreditLimit,
+  getCreditUsagePercentage,
+  getCreditUsed,
+  isCreditCardWallet,
+} from "./creditCards";
 
 export type FinancialAlertTone = "success" | "warning" | "danger";
 
@@ -18,7 +26,11 @@ export interface FinancialAlert {
 
 export interface FinancialSnapshot {
   cashBalance: number;
+  creditLimitTotal: number;
+  creditUsed: number;
+  creditAvailable: number;
   creditRemaining: number;
+  creditUsagePercentage: number;
   income: number;
   totalExpenses: number;
   creditExpenses: number;
@@ -42,17 +54,18 @@ export interface WalletBalanceSummary {
   walletById: Record<string, Wallet>;
   totalBalance: number;
   cashBalance: number;
+  creditLimitTotal: number;
+  creditUsed: number;
+  creditAvailable: number;
   creditRemaining: number;
+  creditUsagePercentage: number;
   income: number;
   debitExpenses: number;
   creditExpenses: number;
   totalExpenses: number;
   netCashFlow: number;
+  creditWalletCount: number;
   byType: Record<string, number>;
-}
-
-export function isCreditWallet(wallet?: Wallet | null) {
-  return String(wallet?.type || "").toLowerCase() === "credit";
 }
 
 export function getTransactionWalletId(transaction: Transaction) {
@@ -61,6 +74,10 @@ export function getTransactionWalletId(transaction: Transaction) {
 
 export function getTransactionToWalletId(transaction: Transaction) {
   return transaction.toWalletId || (transaction as any).to_wallet_id || "";
+}
+
+export function isCreditWallet(wallet?: Wallet | null) {
+  return isCreditCardWallet(wallet);
 }
 
 export function buildWalletBalanceSummary(
@@ -72,18 +89,25 @@ export function buildWalletBalanceSummary(
     return acc;
   }, {});
 
-  const totalBalance = wallets.reduce(
-    (acc, wallet) => acc + Number(wallet.balance || 0),
+  const creditWallets = wallets.filter((wallet) => isCreditCardWallet(wallet));
+  const creditLimitTotal = creditWallets.reduce(
+    (acc, wallet) => acc + getCreditLimit(wallet, transactions),
+    0
+  );
+  const creditUsed = creditWallets.reduce(
+    (acc, wallet) => acc + getCreditUsed(wallet, transactions),
+    0
+  );
+  const creditAvailable = creditWallets.reduce(
+    (acc, wallet) => acc + getCreditAvailable(wallet, transactions),
     0
   );
 
   const cashBalance = wallets
-    .filter((wallet) => !isCreditWallet(wallet))
-    .reduce((acc, wallet) => acc + Number(wallet.balance || 0), 0);
+    .filter((wallet) => !isCreditCardWallet(wallet))
+    .reduce((acc, wallet) => acc + normalizeMoneyNumber(wallet.balance, 0), 0);
 
-  const creditRemaining = wallets
-    .filter((wallet) => isCreditWallet(wallet))
-    .reduce((acc, wallet) => acc + Number(wallet.balance || 0), 0);
+  const totalBalance = cashBalance;
 
   const income = transactions
     .filter((item) => item.type === "income")
@@ -92,21 +116,32 @@ export function buildWalletBalanceSummary(
   const creditExpenses = transactions
     .filter((item) => {
       const wallet = walletById[getTransactionWalletId(item)];
-      return item.type === "expense" && isCreditWallet(wallet);
+      return item.type === "expense" && isCreditCardWallet(wallet);
     })
     .reduce((acc, item) => acc + Number(item.amount || 0), 0);
 
   const debitExpenses = transactions
     .filter((item) => {
       const wallet = walletById[getTransactionWalletId(item)];
-      return item.type === "expense" && !isCreditWallet(wallet);
+      return item.type === "expense" && !isCreditCardWallet(wallet);
     })
     .reduce((acc, item) => acc + Number(item.amount || 0), 0);
 
   const totalExpenses = creditExpenses + debitExpenses;
+  const creditUsagePercentage =
+    creditWallets.length > 0
+      ? Math.min(100, Math.max(0, (creditUsed / Math.max(creditLimitTotal, 1)) * 100))
+      : 0;
+
   const byType = wallets.reduce<Record<string, number>>((acc, wallet) => {
     const typeKey = String(wallet.type || "checking");
-    acc[typeKey] = (acc[typeKey] || 0) + Number(wallet.balance || 0);
+
+    if (isCreditCardWallet(wallet)) {
+      acc[typeKey] = (acc[typeKey] || 0) + getCreditLimit(wallet, transactions);
+      return acc;
+    }
+
+    acc[typeKey] = (acc[typeKey] || 0) + normalizeMoneyNumber(wallet.balance, 0);
     return acc;
   }, {});
 
@@ -114,12 +149,17 @@ export function buildWalletBalanceSummary(
     walletById,
     totalBalance,
     cashBalance,
-    creditRemaining,
+    creditLimitTotal,
+    creditUsed,
+    creditAvailable,
+    creditRemaining: creditAvailable,
+    creditUsagePercentage,
     income,
     debitExpenses,
     creditExpenses,
     totalExpenses,
     netCashFlow: income - totalExpenses,
+    creditWalletCount: creditWallets.length,
     byType,
   };
 }
@@ -163,7 +203,11 @@ export function buildFinancialSnapshot(
   const { walletById } = summary;
   const {
     cashBalance,
+    creditLimitTotal,
+    creditUsed,
+    creditAvailable,
     creditRemaining,
+    creditUsagePercentage,
     income,
     debitExpenses,
     creditExpenses,
@@ -247,8 +291,8 @@ export function buildFinancialSnapshot(
 
   if (income === 0 && totalExpenses > 0) healthScore -= 18;
   if (income > 0 && totalExpenses > income) healthScore -= 28;
-  if (creditExpenses > debitExpenses && creditExpenses > 0) healthScore -= 12;
-  if (creditRemaining > 0 && creditExpenses > creditRemaining) healthScore -= 24;
+  if (creditUsed > creditLimitTotal && creditLimitTotal > 0) healthScore -= 24;
+  if (creditUsagePercentage > 80) healthScore -= 12;
   if (cashBalance < totalExpenses * 0.25 && totalExpenses > 0) healthScore -= 14;
   if (cashBalance < 0) healthScore -= 18;
 
@@ -275,11 +319,11 @@ export function buildFinancialSnapshot(
       title: "As saídas já estão acima das entradas",
       text: "Vale revisar os maiores gastos antes que o mês fique apertado.",
     };
-  } else if (creditExpenses > creditRemaining && creditExpenses > 0) {
+  } else if (creditUsagePercentage > 80) {
     mainInsight = {
       tone: "warning",
-      title: "O cartão está carregando peso demais",
-      text: "O uso do crédito está alto frente ao limite disponível.",
+      title: "O limite do cartão está ficando apertado",
+      text: "O uso do crédito já passou do ponto confortável para o período.",
     };
   } else if (creditExpenses > debitExpenses && creditExpenses > 0) {
     mainInsight = {
@@ -303,12 +347,12 @@ export function buildFinancialSnapshot(
 
   const alerts: FinancialAlert[] = [];
 
-  if (creditExpenses > Math.max(creditRemaining * 0.6, totalExpenses * 0.35)) {
+  if (creditUsagePercentage > 80 && creditLimitTotal > 0) {
     alerts.push({
       tone: "danger",
       title: "Você está usando muito crédito",
-      text: "Os gastos no cartão estão pesando mais do que o ideal.",
-      suggestion: "Revise a fatura e evite novas parcelas por enquanto.",
+      text: "O uso do cartão já ultrapassou uma faixa confortável.",
+      suggestion: "Revise a fatura e evite novas compras até aliviar o limite.",
     });
   }
 
@@ -363,7 +407,11 @@ export function buildFinancialSnapshot(
 
   return {
     cashBalance,
+    creditLimitTotal,
+    creditUsed,
+    creditAvailable,
     creditRemaining,
+    creditUsagePercentage,
     income,
     totalExpenses,
     creditExpenses,

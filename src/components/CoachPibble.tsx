@@ -19,7 +19,7 @@ import { buildFinancialSnapshot } from "../utils/financialSnapshot";
 import { formatMoney } from "../utils/formatMoney";
 import { TEST_IDS } from "../utils/testIds";
 import {
-  resolveDashboardSectionFromInsight,
+  resolveDashboardInsightTargets,
   type DashboardSectionId,
 } from "../utils/dashboardNavigation";
 
@@ -44,7 +44,10 @@ interface Props {
   wallets: WalletType[];
   transactions: TransactionType[];
   currency: "BRL" | "USD" | "EUR";
-  onRequestDeepDive?: (sectionId: DashboardSectionId) => void;
+  onRequestDeepDive?: (targets: {
+    primary: DashboardSectionId;
+    related: DashboardSectionId[];
+  }) => void;
 }
 
 interface MessageItem {
@@ -197,7 +200,7 @@ export default function CoachPibble({
     if (!onRequestDeepDive) return;
 
     setIsDeepDiveLoading(true);
-    onRequestDeepDive(resolveDashboardSectionFromInsight(analysis.mainInsight));
+    onRequestDeepDive(resolveDashboardInsightTargets(analysis.mainInsight));
 
     window.clearTimeout(deepDiveTimerRef.current ?? undefined);
     deepDiveTimerRef.current = window.setTimeout(() => {

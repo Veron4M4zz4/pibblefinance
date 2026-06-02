@@ -1,7 +1,8 @@
 import { supabase } from "./supabase";
 import { resolveWalletThemeClass } from "../utils/walletTheme";
 import { formatLocalDateInputValue, normalizeLocalDateValue } from "../utils/date";
-import { parseLocalNumber } from "../utils/numbers";
+import { parseLocalNumber, normalizeMoneyNumber } from "../utils/numbers";
+import { isCreditCardWallet } from "../utils/creditCards";
 import {
   createE2ETransaction,
   createE2EWallet,
@@ -21,7 +22,19 @@ function normalizeWalletRecord(wallet: any) {
     ...wallet,
     name: wallet?.name || "Carteira",
     type: wallet?.type || "checking",
-    balance: Number(wallet?.balance || 0),
+    balance: normalizeMoneyNumber(wallet?.balance, 0),
+    creditLimit:
+      wallet?.creditLimit !== undefined && wallet?.creditLimit !== null
+      ? normalizeMoneyNumber(wallet?.creditLimit, 0)
+      : undefined,
+    closingDay:
+      wallet?.closingDay !== undefined && wallet?.closingDay !== null
+      ? Number(wallet?.closingDay || 0) || undefined
+      : undefined,
+    dueDay:
+      wallet?.dueDay !== undefined && wallet?.dueDay !== null
+      ? Number(wallet?.dueDay || 0) || undefined
+      : undefined,
     color: resolveWalletThemeClass(wallet?.color, wallet?.type),
     currency: wallet?.currency || "BRL",
   };
@@ -105,6 +118,19 @@ export async function createWallet(wallet: any) {
   const payload = {
     ...wallet,
     user_id: userId,
+    balance: normalizeMoneyNumber(wallet?.balance, 0),
+    creditLimit:
+      wallet?.creditLimit !== undefined && wallet?.creditLimit !== null
+      ? normalizeMoneyNumber(wallet?.creditLimit, 0)
+      : undefined,
+    closingDay:
+      wallet?.closingDay !== undefined && wallet?.closingDay !== null
+      ? Number(wallet?.closingDay || 0) || null
+      : undefined,
+    dueDay:
+      wallet?.dueDay !== undefined && wallet?.dueDay !== null
+      ? Number(wallet?.dueDay || 0) || null
+      : undefined,
   };
 
   const { data, error } = await supabase
@@ -122,7 +148,25 @@ export async function createWallet(wallet: any) {
 
 export async function updateWallet(walletId: string, wallet: any) {
   if (isE2EMode()) {
-    return updateE2EWallet(walletId, wallet).map(normalizeWalletRecord);
+    return updateE2EWallet(walletId, {
+      ...wallet,
+      balance:
+        wallet && Object.prototype.hasOwnProperty.call(wallet, "balance")
+          ? normalizeMoneyNumber(wallet.balance, 0)
+          : wallet?.balance,
+      creditLimit:
+        wallet?.creditLimit !== undefined && wallet?.creditLimit !== null
+        ? normalizeMoneyNumber(wallet?.creditLimit, 0)
+        : wallet?.creditLimit,
+      closingDay:
+        wallet?.closingDay !== undefined && wallet?.closingDay !== null
+        ? Number(wallet?.closingDay || 0) || null
+        : wallet?.closingDay,
+      dueDay:
+        wallet?.dueDay !== undefined && wallet?.dueDay !== null
+        ? Number(wallet?.dueDay || 0) || null
+        : wallet?.dueDay,
+    }).map(normalizeWalletRecord);
   }
 
   const userId = await getCurrentUserId();
@@ -131,7 +175,25 @@ export async function updateWallet(walletId: string, wallet: any) {
 
   const { data, error } = await supabase
     .from("wallets")
-    .update(wallet)
+    .update({
+      ...wallet,
+      balance:
+        wallet && Object.prototype.hasOwnProperty.call(wallet, "balance")
+          ? normalizeMoneyNumber(wallet.balance, 0)
+          : wallet?.balance,
+      creditLimit:
+        wallet?.creditLimit !== undefined && wallet?.creditLimit !== null
+        ? normalizeMoneyNumber(wallet?.creditLimit, 0)
+        : wallet?.creditLimit,
+      closingDay:
+        wallet?.closingDay !== undefined && wallet?.closingDay !== null
+        ? Number(wallet?.closingDay || 0) || null
+        : wallet?.closingDay,
+      dueDay:
+        wallet?.dueDay !== undefined && wallet?.dueDay !== null
+        ? Number(wallet?.dueDay || 0) || null
+        : wallet?.dueDay,
+    })
     .eq("id", walletId)
     .eq("user_id", userId)
     .select();
@@ -199,6 +261,17 @@ async function updateWalletBalance(
 
     if (!wallet) return null;
 
+    if (
+      isCreditCardWallet(wallet as any) &&
+      wallet?.creditLimit !== undefined &&
+      wallet?.creditLimit !== null
+    ) {
+      return {
+        walletId,
+        balance: Number(wallet.balance || 0),
+      };
+    }
+
     const currentBalance = Number(wallet.balance || 0);
     const newBalance =
       operation === "add" ? currentBalance + amount : currentBalance - amount;
@@ -217,7 +290,7 @@ async function updateWalletBalance(
 
   const { data: wallet, error: walletError } = await supabase
     .from("wallets")
-    .select("balance")
+    .select("balance, type, creditLimit")
     .eq("id", walletId)
     .eq("user_id", userId)
     .single();
@@ -225,6 +298,17 @@ async function updateWalletBalance(
   if (walletError) {
     console.error(walletError);
     return null;
+  }
+
+  if (
+    isCreditCardWallet(wallet as any) &&
+    wallet?.creditLimit !== undefined &&
+    wallet?.creditLimit !== null
+  ) {
+    return {
+      walletId,
+      balance: Number(wallet?.balance || 0),
+    };
   }
 
   const currentBalance = Number(wallet?.balance || 0);

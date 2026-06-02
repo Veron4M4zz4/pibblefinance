@@ -51,7 +51,10 @@ import {
   resolveWalletAccentClass,
   resolveWalletThemeClass,
 } from "./utils/walletTheme";
-import type { DashboardSectionId } from "./utils/dashboardNavigation";
+import type {
+  DashboardInsightTargets,
+  DashboardSectionId,
+} from "./utils/dashboardNavigation";
 
 import CommandCenterDashboard from "./components/CommandCenterDashboard";
 import CoachPibble from "./components/CoachPibble";
@@ -181,7 +184,8 @@ export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [deepDiveRequest, setDeepDiveRequest] = useState<{
     requestId: number;
-    sectionId: DashboardSectionId;
+    primarySectionId: DashboardSectionId;
+    relatedSectionIds: DashboardSectionId[];
   } | null>(null);
   const deepDiveRequestCounterRef = useRef(0);
   type WalletOverviewItem = Wallet & {
@@ -979,12 +983,13 @@ export default function App() {
     }));
   }
 
-  function handleRequestDeepDive(sectionId: DashboardSectionId) {
+  function handleRequestDeepDive(targets: DashboardInsightTargets) {
     deepDiveRequestCounterRef.current += 1;
 
     setDeepDiveRequest({
       requestId: deepDiveRequestCounterRef.current,
-      sectionId,
+      primarySectionId: targets.primary,
+      relatedSectionIds: targets.related,
     });
     setActiveTab("dashboard");
     setMobileTab("home");

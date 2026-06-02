@@ -1,6 +1,8 @@
 import type { Session } from "@supabase/supabase-js";
 import type { Transaction, Wallet } from "../types";
 import { formatLocalDateInputValue, normalizeLocalDateValue } from "../utils/date";
+import { normalizeMoneyNumber } from "../utils/numbers";
+import { isCreditCardWallet } from "../utils/creditCards";
 
 const E2E_FLAG = "e2e";
 const AUTH_KEY = "pibblefinance:e2e:auth";
@@ -107,7 +109,19 @@ export function createE2EWallet(wallet: Omit<Wallet, "id">) {
   const nextWallet: Wallet & { createdAt: string; updatedAt: string } = {
     id: generateId(),
     ...wallet,
-    balance: Number(wallet.balance || 0),
+    balance: normalizeMoneyNumber(wallet.balance, 0),
+    creditLimit:
+      (wallet as any).creditLimit !== undefined && (wallet as any).creditLimit !== null
+        ? normalizeMoneyNumber((wallet as any).creditLimit, 0)
+        : undefined,
+    closingDay:
+      (wallet as any).closingDay !== undefined && (wallet as any).closingDay !== null
+        ? Number((wallet as any).closingDay || 0) || null
+        : undefined,
+    dueDay:
+      (wallet as any).dueDay !== undefined && (wallet as any).dueDay !== null
+        ? Number((wallet as any).dueDay || 0) || null
+        : undefined,
     createdAt: now,
     updatedAt: now,
   };
@@ -123,6 +137,22 @@ export function updateE2EWallet(walletId: string, wallet: Partial<Wallet>) {
       ? {
           ...item,
           ...wallet,
+          balance:
+            wallet && Object.prototype.hasOwnProperty.call(wallet, "balance")
+              ? normalizeMoneyNumber(wallet.balance, 0)
+              : item.balance,
+          creditLimit:
+            wallet && (wallet as any).creditLimit !== undefined && (wallet as any).creditLimit !== null
+              ? normalizeMoneyNumber((wallet as any).creditLimit, 0)
+              : item.creditLimit,
+          closingDay:
+            wallet && (wallet as any).closingDay !== undefined && (wallet as any).closingDay !== null
+              ? Number((wallet as any).closingDay || 0) || null
+              : item.closingDay,
+          dueDay:
+            wallet && (wallet as any).dueDay !== undefined && (wallet as any).dueDay !== null
+              ? Number((wallet as any).dueDay || 0) || null
+              : item.dueDay,
           updatedAt: new Date().toISOString(),
         }
       : item

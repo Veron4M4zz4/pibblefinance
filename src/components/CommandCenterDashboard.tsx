@@ -37,10 +37,11 @@ import { TEST_IDS } from "../utils/testIds";
 import DashboardCharts from "./DashboardCharts";
 import CoachPibble from "./CoachPibble";
 import {
+  resolveDashboardInsightTargets,
   getDashboardSectionLabel,
-  resolveDashboardSectionFromInsight,
   scrollToDashboardSection,
   type DashboardSectionId,
+  type DashboardInsightTargets,
 } from "../utils/dashboardNavigation";
 
 interface DashboardCommandCenterProps {
@@ -48,10 +49,11 @@ interface DashboardCommandCenterProps {
   transactions: Transaction[];
   currency: "BRL" | "USD" | "EUR";
   onNavigateTab?: (tab: "wallets" | "transactions") => void;
-  onRequestDeepDive?: (sectionId: DashboardSectionId) => void;
+  onRequestDeepDive?: (targets: DashboardInsightTargets) => void;
   deepDiveRequest?: {
     requestId: number;
-    sectionId: DashboardSectionId;
+    primarySectionId: DashboardSectionId;
+    relatedSectionIds: DashboardSectionId[];
   } | null;
   onDeepDiveHandled?: () => void;
   compact?: boolean;
@@ -199,9 +201,9 @@ export default function DashboardCommandCenter({
     return `${baseClassName} scroll-mt-28 transition-all duration-500 ${isHighlighted ? sectionHighlightClass : ""}`;
   }
 
-  function triggerDeepDive(sectionId: DashboardSectionId) {
+  function triggerDeepDive(targets: DashboardInsightTargets) {
     setIsDeepDiveLoading(true);
-    onRequestDeepDive?.(sectionId);
+    onRequestDeepDive?.(targets);
 
     window.clearTimeout(deepDiveLoadingTimerRef.current ?? undefined);
     deepDiveLoadingTimerRef.current = window.setTimeout(() => {
@@ -220,13 +222,11 @@ export default function DashboardCommandCenter({
   useEffect(() => {
     if (!deepDiveRequest) return;
 
-    const contextSectionId =
-      deepDiveRequest.sectionId === "dashboard-summary"
-        ? null
-        : ("dashboard-summary" as const);
-    const nextHighlightedSectionIds = contextSectionId
-      ? [deepDiveRequest.sectionId, contextSectionId]
-      : [deepDiveRequest.sectionId];
+    const nextHighlightedSectionIds = [
+      "dashboard-summary",
+      deepDiveRequest.primarySectionId,
+      ...deepDiveRequest.relatedSectionIds,
+    ].filter((sectionId, index, array) => array.indexOf(sectionId) === index) as DashboardSectionId[];
 
     setShowAdvanced(true);
     setShowCoach(true);
@@ -236,16 +236,16 @@ export default function DashboardCommandCenter({
     window.clearTimeout(deepDiveScrollTimerRef.current ?? undefined);
     deepDiveScrollTimerRef.current = window.setTimeout(() => {
       const found =
-        scrollToDashboardSection(deepDiveRequest.sectionId) ||
+        scrollToDashboardSection(deepDiveRequest.primarySectionId) ||
         scrollToDashboardSection("dashboard-summary");
 
       if (!found) {
         setDeepDiveNotice(
-          `Não encontrei ${getDashboardSectionLabel(deepDiveRequest.sectionId)} nesta visão.`
+          `Não encontrei ${getDashboardSectionLabel(deepDiveRequest.primarySectionId)} nesta visão.`
         );
       } else {
         setDeepDiveNotice(
-          `Abrindo ${getDashboardSectionLabel(deepDiveRequest.sectionId)}.`
+          `Abrindo ${getDashboardSectionLabel(deepDiveRequest.primarySectionId)}.`
         );
       }
 
@@ -401,9 +401,7 @@ export default function DashboardCommandCenter({
               <button
                 type="button"
                 onClick={() =>
-                  triggerDeepDive(
-                    resolveDashboardSectionFromInsight(totals.mainInsight)
-                  )
+                  triggerDeepDive(resolveDashboardInsightTargets(totals.mainInsight))
                 }
                 disabled={isDeepDiveLoading}
                 className={`mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ${
