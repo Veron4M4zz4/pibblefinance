@@ -195,6 +195,7 @@ export default function CoachPibble({
       : analysis.mainInsight.tone === "warning"
       ? AlertTriangle
       : CheckCircle2;
+  const insightFocus = analysis.mainInsight.sourceData || {};
 
   function handleDeepDiveClick() {
     if (!onRequestDeepDive) return;
@@ -305,6 +306,63 @@ export default function CoachPibble({
           <p className={`text-xs leading-6 ${isLight ? "text-slate-700" : "text-white/80"}`}>
             {analysis.mainInsight.text}
           </p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <span
+              className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] ${
+                analysis.mainInsight.priority === "CRITICAL"
+                  ? "border-rose-400/20 bg-rose-500/10 text-rose-100"
+                  : analysis.mainInsight.priority === "HIGH"
+                  ? "border-amber-400/20 bg-amber-500/10 text-amber-100"
+                  : analysis.mainInsight.priority === "MEDIUM"
+                  ? "border-sky-400/20 bg-sky-500/10 text-sky-100"
+                  : "border-emerald-400/20 bg-emerald-500/10 text-emerald-100"
+              }`}
+            >
+              {analysis.mainInsight.priority}
+            </span>
+            <span
+              className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] ${
+                isLight
+                  ? "border-slate-200 bg-white text-slate-600"
+                  : "border-white/10 bg-white/5 text-slate-300"
+              }`}
+            >
+              {analysis.mainInsight.type.replaceAll("_", " ")}
+            </span>
+            {String(
+              insightFocus.categoryName ||
+                insightFocus.walletName ||
+                insightFocus.subscriptionName ||
+                ""
+            ).trim() ? (
+              <span
+                className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] ${
+                  isLight
+                    ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                    : "border-indigo-400/20 bg-indigo-500/10 text-indigo-100"
+                }`}
+              >
+                {String(
+                  insightFocus.categoryName ||
+                    insightFocus.walletName ||
+                    insightFocus.subscriptionName
+                ).trim()}
+              </span>
+            ) : null}
+          </div>
+
+          {analysis.mainInsight.impactEstimate ? (
+            <p className={`mt-3 text-xs leading-5 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
+              Impacto estimado: {analysis.mainInsight.impactEstimate}
+            </p>
+          ) : null}
+
+          {analysis.mainInsight.actionSuggestion ? (
+            <p className={`mt-2 text-xs font-semibold ${isLight ? "text-slate-600" : "text-slate-300"}`}>
+              CTA sugerido: {analysis.mainInsight.actionSuggestion}
+            </p>
+          ) : null}
 
           <button
             type="button"

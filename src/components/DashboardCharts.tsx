@@ -38,6 +38,7 @@ interface DashboardChartsProps {
   wallets?: Wallet[];
   currency: "BRL" | "USD" | "EUR";
   highlightedSectionIds?: DashboardSectionId[];
+  highlightedCategoryName?: string;
 }
 
 const COLORS = {
@@ -86,6 +87,7 @@ export default function DashboardCharts({
   wallets = [],
   currency,
   highlightedSectionIds = [],
+  highlightedCategoryName = "",
 }: DashboardChartsProps) {
   const { resolvedTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<"overview" | "categories">(
@@ -524,17 +526,24 @@ export default function DashboardCharts({
               </div>
             </div>
 
-            <div className="flex h-[320px] min-h-0 flex-col gap-2 overflow-y-auto pb-3 pr-3">
-              {expensesByCategory.map((item) => {
-                const percentage = financialOverview.totalExpenses
-                  ? ((item.value / financialOverview.totalExpenses) * 100).toFixed(1)
-                  : "0";
+              <div className="flex h-[320px] min-h-0 flex-col gap-2 overflow-y-auto pb-3 pr-3">
+                {expensesByCategory.map((item) => {
+                  const percentage = financialOverview.totalExpenses
+                    ? ((item.value / financialOverview.totalExpenses) * 100).toFixed(1)
+                    : "0";
+                  const isHighlighted = highlightedCategoryName
+                    ? item.name.toLowerCase() === highlightedCategoryName.toLowerCase()
+                    : false;
 
-                return (
-                  <div
-                    key={item.name}
-                    className={`rounded-2xl p-3 transition hover:shadow-xs ${cardToneClass}`}
-                  >
+                  return (
+                    <div
+                      key={item.name}
+                      className={`rounded-2xl p-3 transition hover:shadow-xs ${cardToneClass} ${
+                        isHighlighted
+                          ? "ring-2 ring-indigo-400/40 shadow-[0_0_0_1px_rgba(99,102,241,0.2),0_0_24px_rgba(99,102,241,0.2)]"
+                          : ""
+                      }`}
+                    >
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-2">
                         <span

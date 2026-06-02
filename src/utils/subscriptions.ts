@@ -42,10 +42,21 @@ export interface SubscriptionItem {
   ignored: boolean;
 }
 
+export interface SubscriptionEntity {
+  name: string;
+  value: number;
+  frequency: SubscriptionFrequency;
+  nextChargeDate: string;
+  annualCost: number;
+  walletName: string;
+  confidence: number;
+}
+
 export interface SubscriptionOverview {
   monthlyTotal: number;
   annualTotal: number;
   items: SubscriptionItem[];
+  entities: SubscriptionEntity[];
   insights: SubscriptionInsight[];
   categoryBreakdown: SubscriptionCategorySummary[];
 }
@@ -53,18 +64,62 @@ export interface SubscriptionOverview {
 export const SUBSCRIPTION_OVERRIDES_STORAGE_KEY =
   "pibblefinance:subscription-overrides";
 
-const KNOWN_BRANDS = [
-  { label: "Netflix", patterns: [/netflix/i] },
-  { label: "Spotify", patterns: [/spotify/i] },
-  { label: "Amazon Prime", patterns: [/amazon\s*prime/i, /prime\s*video/i, /\bprime\b/i] },
-  { label: "YouTube Premium", patterns: [/youtube\s*premium/i, /youtubepremium/i] },
-  { label: "ChatGPT Plus", patterns: [/chatgpt\s*plus/i, /openai/i] },
-  { label: "Disney+", patterns: [/disney\s*\+/i, /disney\s*plus/i, /\bdisney\b/i] },
-  { label: "Apple", patterns: [/apple\s*one/i, /icloud/i, /\bapple\b/i] },
-  { label: "Google", patterns: [/google\s*one/i, /\bgoogle\b/i] },
-  { label: "Canva", patterns: [/\bcanva\b/i] },
-  { label: "Adobe", patterns: [/\badobe\b/i] },
-  { label: "Microsoft", patterns: [/\bmicrosoft\b/i, /microsoft\s*365/i] },
+type BrandGroup = {
+  label: string;
+  aliases: string[];
+};
+
+export const subscriptionAliases = [
+  "netflix",
+  "disney",
+  "disney+",
+  "max",
+  "hbo",
+  "hbo max",
+  "prime",
+  "amazon prime",
+  "spotify",
+  "youtube",
+  "youtube premium",
+  "chatgpt",
+  "openai",
+  "claude",
+  "anthropic",
+  "google one",
+  "dropbox",
+  "canva",
+  "microsoft 365",
+  "office",
+  "adobe",
+  "icloud",
+  "apple",
+  "crunchyroll",
+  "paramount",
+  "deezer",
+  "nordvpn",
+  "expressvpn",
+] as const;
+
+const BRAND_GROUPS: BrandGroup[] = [
+  { label: "Netflix", aliases: ["netflix"] },
+  { label: "Disney+", aliases: ["disney+", "disney"] },
+  { label: "Max", aliases: ["max", "hbo max", "hbo"] },
+  { label: "Amazon Prime", aliases: ["prime", "amazon prime", "prime video"] },
+  { label: "Spotify", aliases: ["spotify"] },
+  { label: "YouTube Premium", aliases: ["youtube premium", "youtube"] },
+  { label: "ChatGPT", aliases: ["chatgpt", "openai"] },
+  { label: "Claude", aliases: ["claude", "anthropic"] },
+  { label: "Google One", aliases: ["google one", "google"] },
+  { label: "Dropbox", aliases: ["dropbox"] },
+  { label: "Canva", aliases: ["canva"] },
+  { label: "Microsoft 365", aliases: ["microsoft 365", "office", "microsoft"] },
+  { label: "Adobe", aliases: ["adobe"] },
+  { label: "iCloud", aliases: ["icloud", "apple"] },
+  { label: "Crunchyroll", aliases: ["crunchyroll"] },
+  { label: "Paramount+", aliases: ["paramount"] },
+  { label: "Deezer", aliases: ["deezer"] },
+  { label: "NordVPN", aliases: ["nordvpn"] },
+  { label: "ExpressVPN", aliases: ["expressvpn"] },
 ];
 
 const STOP_WORDS = new Set([
@@ -142,8 +197,12 @@ function getMerchantText(transaction: Transaction) {
 }
 
 function getBrandMatch(text: string) {
-  for (const brand of KNOWN_BRANDS) {
-    if (brand.patterns.some((pattern) => pattern.test(text))) {
+  for (const brand of BRAND_GROUPS) {
+    if (
+      brand.aliases.some((alias) =>
+        text.includes(normalizeText(alias))
+      )
+    ) {
       return brand.label;
     }
   }
@@ -437,6 +496,15 @@ export function buildSubscriptionOverview(
     .sort((a, b) => a.nextChargeDate.localeCompare(b.nextChargeDate));
 
   const activeItems = items.filter((item) => !item.ignored);
+  const entities: SubscriptionEntity[] = activeItems.map((item) => ({
+    name: item.displayName,
+    value: item.monthlyEquivalent,
+    frequency: item.frequency,
+    nextChargeDate: item.nextChargeDate,
+    annualCost: item.annualCostEstimate,
+    walletName: item.walletName,
+    confidence: item.confidence,
+  }));
 
   const monthlyTotal = activeItems.reduce(
     (acc, item) => acc + item.monthlyEquivalent,
@@ -555,6 +623,7 @@ export function buildSubscriptionOverview(
     monthlyTotal,
     annualTotal,
     items,
+    entities,
     insights,
     categoryBreakdown,
   };

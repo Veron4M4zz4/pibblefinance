@@ -8,13 +8,38 @@ import {
   getCreditUsed,
   isCreditCardWallet,
 } from "./creditCards";
+import type { DashboardSectionId } from "./dashboardNavigation";
+import { buildSubscriptionOverview } from "./subscriptions";
 
 export type FinancialAlertTone = "success" | "warning" | "danger";
+export type FinancialInsightType =
+  | "CATEGORY_SPENDING"
+  | "CREDIT_USAGE"
+  | "CASHFLOW"
+  | "SUBSCRIPTIONS"
+  | "SAVINGS"
+  | "GOALS"
+  | "WALLET_PERFORMANCE"
+  | "INCOME"
+  | "INSTALLMENTS"
+  | "ANOMALY";
+
+export type FinancialInsightPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+export type FinancialInsightSourceValue = string | number | boolean | null | Array<string | number>;
+export type FinancialInsightSourceData = Record<string, FinancialInsightSourceValue>;
 
 export interface FinancialInsight {
+  type: FinancialInsightType;
+  priority: FinancialInsightPriority;
   tone: FinancialAlertTone;
   title: string;
   text: string;
+  chartTarget: DashboardSectionId;
+  relatedSectionIds: DashboardSectionId[];
+  actionSuggestion: string;
+  sourceData: FinancialInsightSourceData;
+  impactEstimate: string;
 }
 
 export interface FinancialAlert {
@@ -22,6 +47,9 @@ export interface FinancialAlert {
   title: string;
   text: string;
   suggestion: string;
+  priority?: FinancialInsightPriority;
+  chartTarget?: DashboardSectionId;
+  type?: FinancialInsightType;
 }
 
 export interface FinancialSnapshot {
@@ -195,6 +223,19 @@ function getAlertTone(score: number): FinancialAlertTone {
   return "danger";
 }
 
+function buildInsight(
+  insight: FinancialInsight
+): FinancialInsight {
+  return insight;
+}
+
+function normalizeCategoryName(value: string) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\b([a-z])/g, (match) => match.toUpperCase());
+}
+
 export function buildFinancialSnapshot(
   wallets: Wallet[],
   transactions: Transaction[]
@@ -235,6 +276,9 @@ export function buildFinancialSnapshot(
 
   let smallExpenseCount = 0;
   let smallExpenseTotal = 0;
+  const expenseByCategory: Record<string, number> = {};
+  const creditWallets = wallets.filter((wallet) => isCreditCardWallet(wallet));
+  const subscriptionOverview = buildSubscriptionOverview(wallets, transactions);
 
   const smallExpenseThreshold = Math.max(
     40,
@@ -274,6 +318,9 @@ export function buildFinancialSnapshot(
         smallExpenseCount += 1;
         smallExpenseTotal += amount;
       }
+
+      const categoryKey = normalizeCategoryName(transaction.category || "Outros");
+      expenseByCategory[categoryKey] = (expenseByCategory[categoryKey] || 0) + amount;
     }
   });
 
@@ -286,6 +333,13 @@ export function buildFinancialSnapshot(
 
   const incomeTrendPercent = safePercent(incomeLast7Days, incomePrev7Days);
   const expenseTrendPercent = safePercent(expenseLast7Days, expensePrev7Days);
+  const topExpenseCategoryEntry = Object.entries(expenseByCategory).sort(
+    (a, b) => b[1] - a[1]
+  )[0];
+  const topExpenseCategoryName = topExpenseCategoryEntry?.[0] || "";
+  const topExpenseCategoryValue = topExpenseCategoryEntry?.[1] || 0;
+  const topExpenseCategoryShare =
+    totalExpenses > 0 ? (topExpenseCategoryValue / totalExpenses) * 100 : 0;
 
   let healthScore = 100;
 
@@ -301,48 +355,171 @@ export function buildFinancialSnapshot(
 
   healthScore = clamp(Math.round(healthScore), 0, 100);
 
-  let mainInsight: FinancialInsight = {
+  const primaryCreditWallet = creditWallets[0];
+  const topSubscriptionEntity = subscriptionOverview.entities[0];
+
+  let mainInsight: FinancialInsight = buildInsight({
+    type: "SAVINGS",
+    priority: "LOW",
     tone: "success",
     title: "Sua estrutura está bem organizada",
     text: "Não encontrei sinais críticos na leitura atual.",
-  };
+    chartTarget: "dashboard-summary",
+    relatedSectionIds: ["financial-evolution-chart"],
+    actionSuggestion: "Ver panorama geral",
+    sourceData: {
+      cashBalance,
+      creditRemaining,
+      totalExpenses,
+      income,
+      netCashFlow,
+    },
+    impactEstimate: "Situação estável no momento.",
+  });
 
   if (income === 0 && totalExpenses > 0) {
-    mainInsight = {
+    mainInsight = buildInsight({
+      type: "INCOME",
+      priority: "CRITICAL",
       tone: "danger",
       title: "Você está gastando sem renda registrada",
       text: "Registrar entradas vai deixar a leitura mais precisa e útil para decisão.",
-    };
+      chartTarget: "financial-evolution-chart",
+      relatedSectionIds: ["dashboard-summary", "expense-categories-chart"],
+      actionSuggestion: "Ver entradas",
+      sourceData: {
+        income,
+        totalExpenses,
+        daysSinceLastIncome,
+      },
+      impactEstimate: `Sem entradas registradas e ${totalExpenses.toFixed(2)} em gastos ativos.`,
+    });
   } else if (income > 0 && totalExpenses > income) {
-    mainInsight = {
+    const overspend = totalExpenses - income;
+    mainInsight = buildInsight({
+      type: "CASHFLOW",
+      priority: overspend / Math.max(income, 1) > 0.25 ? "CRITICAL" : "HIGH",
       tone: "danger",
       title: "As saídas já estão acima das entradas",
       text: "Vale revisar os maiores gastos antes que o mês fique apertado.",
-    };
+      chartTarget: "financial-evolution-chart",
+      relatedSectionIds: ["expense-categories-chart", "wallet-performance-chart"],
+      actionSuggestion: "Analisar fluxo",
+      sourceData: {
+        income,
+        totalExpenses,
+        netCashFlow,
+        overspend,
+      },
+      impactEstimate: `O fluxo está negativo em ${overspend.toFixed(2)} no período atual.`,
+    });
   } else if (creditUsagePercentage > 80) {
-    mainInsight = {
+    mainInsight = buildInsight({
+      type: "CREDIT_USAGE",
+      priority: creditUsagePercentage >= 95 ? "CRITICAL" : "HIGH",
       tone: "warning",
       title: "O limite do cartão está ficando apertado",
       text: "O uso do crédito já passou do ponto confortável para o período.",
-    };
+      chartTarget: "credit-utilization-chart",
+      relatedSectionIds: ["wallet-performance-chart", "financial-evolution-chart"],
+      actionSuggestion: "Ver cartão",
+      sourceData: {
+        creditUsagePercentage: Math.round(creditUsagePercentage),
+        creditUsed,
+        creditLimitTotal,
+        creditRemaining,
+        walletName: primaryCreditWallet?.name || "Cartão de crédito",
+      },
+      impactEstimate: `${Math.round(creditUsagePercentage)}% do limite já está ocupado.`,
+    });
+  } else if (subscriptionOverview.monthlyTotal >= 50 && topSubscriptionEntity) {
+    mainInsight = buildInsight({
+      type: "SUBSCRIPTIONS",
+      priority: subscriptionOverview.monthlyTotal >= 150 ? "HIGH" : "MEDIUM",
+      tone: "warning",
+      title: "Suas assinaturas já merecem atenção",
+      text: `O painel identificou ${subscriptionOverview.entities.length} recorrências ativas.`,
+      chartTarget: "subscriptions-dashboard",
+      relatedSectionIds: ["subscriptions-chart", "wallet-performance-chart"],
+      actionSuggestion: "Analisar assinaturas",
+      sourceData: {
+        subscriptionName: topSubscriptionEntity.name,
+        walletName: topSubscriptionEntity.walletName,
+        subscriptionCount: subscriptionOverview.entities.length,
+        subscriptionMonthlyTotal: subscriptionOverview.monthlyTotal,
+        subscriptionAnnualTotal: subscriptionOverview.annualTotal,
+      },
+      impactEstimate: `Total mensal estimado de ${subscriptionOverview.monthlyTotal.toFixed(2)}.`,
+    });
+  } else if (topExpenseCategoryValue > 0 && topExpenseCategoryShare >= 25) {
+    mainInsight = buildInsight({
+      type: "CATEGORY_SPENDING",
+      priority: topExpenseCategoryShare >= 40 ? "HIGH" : "MEDIUM",
+      tone: topExpenseCategoryShare >= 40 ? "warning" : "success",
+      title: `${topExpenseCategoryName} está puxando seus gastos`,
+      text: `Essa categoria representa ${Math.round(topExpenseCategoryShare)}% do total de despesas.`,
+      chartTarget: "expense-categories-chart",
+      relatedSectionIds: ["financial-evolution-chart"],
+      actionSuggestion: "Ver categorias",
+      sourceData: {
+        categoryName: topExpenseCategoryName,
+        categoryValue: topExpenseCategoryValue,
+        categoryShare: Math.round(topExpenseCategoryShare),
+        totalExpenses,
+      },
+      impactEstimate: `${topExpenseCategoryValue.toFixed(2)} concentrados em ${topExpenseCategoryName}.`,
+    });
   } else if (creditExpenses > debitExpenses && creditExpenses > 0) {
-    mainInsight = {
+    mainInsight = buildInsight({
+      type: "WALLET_PERFORMANCE",
+      priority: "HIGH",
       tone: "warning",
       title: "Grande parte das saídas está indo para o crédito",
       text: "Isso merece atenção para não virar efeito bola de neve no fechamento.",
-    };
+      chartTarget: "credit-utilization-chart",
+      relatedSectionIds: ["wallet-performance-chart", "financial-evolution-chart"],
+      actionSuggestion: "Ver cartão",
+      sourceData: {
+        creditExpenses,
+        debitExpenses,
+        creditUsagePercentage: Math.round(creditUsagePercentage),
+      },
+      impactEstimate: `Cerca de ${creditExpenses.toFixed(2)} do gasto total está indo para o cartão.`,
+    });
   } else if (cashBalance < totalExpenses * 0.5 && totalExpenses > 0) {
-    mainInsight = {
+    mainInsight = buildInsight({
+      type: "SAVINGS",
+      priority: "HIGH",
       tone: "warning",
       title: "Sua folga de caixa está curta",
       text: "A reserva atual pode não cobrir muitas oscilações de gasto.",
-    };
+      chartTarget: "financial-evolution-chart",
+      relatedSectionIds: ["dashboard-summary", "goals-section"],
+      actionSuggestion: "Continuar economizando",
+      sourceData: {
+        cashBalance,
+        totalExpenses,
+        creditRemaining,
+      },
+      impactEstimate: `A folga atual cobre menos de metade dos seus gastos.`,
+    });
   } else if (expenseTrendPercent > 15) {
-    mainInsight = {
+    mainInsight = buildInsight({
+      type: "ANOMALY",
+      priority: expenseTrendPercent >= 35 ? "HIGH" : "MEDIUM",
       tone: "warning",
       title: "Seus gastos subiram recentemente",
       text: "Os últimos 7 dias ficaram mais caros do que o período anterior.",
-    };
+      chartTarget: "anomaly-analysis-chart",
+      relatedSectionIds: ["expense-categories-chart", "financial-evolution-chart"],
+      actionSuggestion: "Investigar gasto",
+      sourceData: {
+        expenseTrendPercent: Math.round(expenseTrendPercent),
+        expenseLast7Days,
+        expensePrev7Days,
+      },
+      impactEstimate: `Os gastos estão ${Math.round(expenseTrendPercent)}% acima da semana anterior.`,
+    });
   }
 
   const alerts: FinancialAlert[] = [];
